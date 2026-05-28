@@ -131,7 +131,7 @@ class _TestExamScreenState extends State<TestExamScreen> {
         leadingWidth: 120,
         leading: TextButton.icon(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close, color: Color(0xFFFF2E37), size: 18),
+          icon: const Icon(Icons.close, color: Color(0xFFFF8C1A), size: 18),
           label: const Text(
             'Exit test',
             style: TextStyle(color: Colors.white60, fontSize: 14, fontWeight: FontWeight.w600),
@@ -183,10 +183,10 @@ class _TestExamScreenState extends State<TestExamScreen> {
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFFF2E37).withOpacity(0.15) : Colors.white.withOpacity(0.03),
+                              color: isSelected ? const Color(0xFFFF8C1A).withOpacity(0.15) : Colors.white.withOpacity(0.03),
                               borderRadius: BorderRadius.circular(30),
                               border: Border.all(
-                                color: isSelected ? const Color(0xFFFF2E37) : Colors.white.withOpacity(0.1),
+                                color: isSelected ? const Color(0xFFFF8C1A) : Colors.white.withOpacity(0.1),
                                 width: 1,
                               ),
                             ),
@@ -209,13 +209,13 @@ class _TestExamScreenState extends State<TestExamScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF2E37).withOpacity(0.05),
+                    color: const Color(0xFFFF8C1A).withOpacity(0.05),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFFF2E37).withOpacity(0.2)),
+                    border: Border.all(color: const Color(0xFFFF8C1A).withOpacity(0.2)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.grid_view_rounded, color: Color(0xFFFF2E37), size: 16),
+                      Icon(Icons.grid_view_rounded, color: Color(0xFFFF8C1A), size: 16),
                       SizedBox(width: 6),
                       Text('Questions', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
@@ -252,12 +252,12 @@ class _TestExamScreenState extends State<TestExamScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFF2E37).withOpacity(0.1),
+                                  color: const Color(0xFFFF8C1A).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   _selectedSubject,
-                                  style: const TextStyle(color: Color(0xFFFF2E37), fontSize: 12, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(color: Color(0xFFFF8C1A), fontSize: 12, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               Container(
@@ -334,10 +334,10 @@ class _TestExamScreenState extends State<TestExamScreen> {
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFFFF2E37).withOpacity(0.04) : Colors.white.withOpacity(0.02),
+                                  color: isSelected ? const Color(0xFFFF8C1A).withOpacity(0.04) : Colors.white.withOpacity(0.02),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFFFF2E37) : Colors.white.withOpacity(0.08),
+                                    color: isSelected ? const Color(0xFFFF8C1A) : Colors.white.withOpacity(0.08),
                                     width: isSelected ? 1.5 : 1,
                                   ),
                                 ),
@@ -348,7 +348,7 @@ class _TestExamScreenState extends State<TestExamScreen> {
                                       height: 32,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: isSelected ? const Color(0xFFFF2E37) : Colors.white.withOpacity(0.06),
+                                        color: isSelected ? const Color(0xFFFF8C1A) : Colors.white.withOpacity(0.06),
                                       ),
                                       child: Center(
                                         child: Text(
@@ -401,7 +401,7 @@ class _TestExamScreenState extends State<TestExamScreen> {
                         child: ElevatedButton(
                           onPressed: _nextQuestion,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF2E37),
+                            backgroundColor: const Color(0xFFFF8C1A),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             elevation: 0,

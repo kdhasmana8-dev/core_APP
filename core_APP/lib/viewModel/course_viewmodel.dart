@@ -20,7 +20,7 @@ class CourseViewModel extends ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.22:5000/api/courses/all'),
+        Uri.parse('http://192.168.1.9:5000/api/courses/all'),
       );
 
       if (response.statusCode == 200) {

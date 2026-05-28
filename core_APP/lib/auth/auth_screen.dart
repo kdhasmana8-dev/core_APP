@@ -46,123 +46,50 @@ class _OttAuthScreenState extends State<OttAuthScreen> {
 
   Future<void> _signInWithGoogle() async {
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        // serverClientId:
-        // '241826914412-1eshqrf2stdhbki8nt4nis447vbamfd426914412-i7n4j1ncprr6bf7m4g1r3l9aq7per8jp.apps.googleusercontent.com',
-      );
-
-      // Account picker force
+      final GoogleSignIn googleSignIn = GoogleSignIn();
       await googleSignIn.disconnect().catchError((_) {});
       await googleSignIn.signOut();
 
-      final GoogleSignInAccount? googleUser =
-      await googleSignIn.signIn();
-
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) return;
 
-      final googleAuth =
-      await googleUser.authentication;
-
-      final credential =
-      GoogleAuthProvider.credential(
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential =
-      await FirebaseAuth.instance
-          .signInWithCredential(
-        credential,
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final firebaseToken = await userCredential.user!.getIdToken(true);
+
+      const baseUrl = "http://192.168.1.9:5000";
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/auth/google-login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"token": firebaseToken}),
       );
 
-      // Fresh token
-      final firebaseToken =
-      await userCredential.user!
-          .getIdToken(true);
+      if (response.statusCode != 200) throw Exception(response.body);
 
-      debugPrint("TOKEN GENERATED");
+      final data = jsonDecode(response.body);
+      final prefs = await SharedPreferences.getInstance();
 
-      const baseUrl =
-          "http://192.168.1.22:5000";
-
-      final response =
-      await http.post(
-        Uri.parse(
-          "$baseUrl/api/auth/google-login",
-        ),
-        headers: {
-          "Content-Type":
-          "application/json",
-        },
-        body: jsonEncode({
-          "token":
-          firebaseToken,
-        }),
-      );
-
-      debugPrint("STATUS => ${response.statusCode}");
-      debugPrint("BODY => ${response.body}");
-
-      debugPrint(response.body);
-
-      if (response.statusCode != 200) {
-        throw Exception(response.body);
-      }
-
-      final data =
-      jsonDecode(response.body);
-
-      final prefs =
-      await SharedPreferences.getInstance();
-
-      await prefs.setString(
-        "user_token",
-        data["token"],
-      );
-
-      await prefs.setBool(
-        "isLoggedIn",
-        true,
-      );
-
-      await prefs.setString(
-        "user_name",
-        data["user"]["name"] ?? "",
-      );
-
-      await prefs.setString(
-        "user_email",
-        data["user"]["email"] ?? "",
-      );
-
-      await prefs.setString(
-        "profile_pic",
-        data["user"]["profilePic"] ?? "",
-      );
+      await prefs.setString("user_token", data["token"]);
+      await prefs.setBool("isLoggedIn", true);
+      await prefs.setString("user_name", data["user"]["name"] ?? "");
+      await prefs.setString("user_email", data["user"]["email"] ?? "");
+      await prefs.setString("profile_pic", data["user"]["profilePic"] ?? "");
 
       if (!mounted) return;
 
-      // Continue directly to OTP screen
-      _nextPage();
+      // FIX: Google login ke baad direct Class Selection (Page 2) par jump karein
+      _pageController.jumpToPage(2);
+      setState(() => _currentPage = 2);
 
     } catch (e) {
-
-      debugPrint(
-        "GOOGLE LOGIN ERROR => $e",
-      );
-
+      debugPrint("GOOGLE LOGIN ERROR => $e");
       if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(
-          content:
-          Text(
-            e.toString(),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -192,7 +119,7 @@ class _OttAuthScreenState extends State<OttAuthScreen> {
     );
   }
 
-  // --- Supporting Methods (kept identical to your logic) ---
+  // --- Supporting Methods ---
   Widget _buildAuthPage(String title, String sub, Widget child, {bool showBack = false, bool isWelcome = false}) {
     return SafeArea(
       child: Padding(
@@ -200,7 +127,17 @@ class _OttAuthScreenState extends State<OttAuthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (showBack) IconButton(onPressed: _prevPage, icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28)),
+            // OTP Page (Index 1) par back button normal kaam karega
+            // Lekin agar user Google se aaya hai, toh use Class Selection (Index 2) par bhej rahe hain
+            if (showBack) IconButton(onPressed: () {
+              if(_currentPage == 2) {
+                _pageController.jumpToPage(0); // Google login ke baad back karne par home le jao
+                setState(() => _currentPage = 0);
+              } else {
+                _prevPage();
+              }
+            }, icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28)),
+
             if (!isWelcome) ...[
               const SizedBox(height: 20),
               Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
