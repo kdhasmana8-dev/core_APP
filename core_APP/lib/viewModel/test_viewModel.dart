@@ -1,77 +1,62 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../model/test_model.dart';
 
 class TestViewModel extends ChangeNotifier {
-  // Private list of tests
-  final List<TestModel> _tests = [
-    // JEE Main Tests
-    TestModel(
-        id: '1',
-        title: 'Full Mock Test - 01',
-        subject: 'Physics',
-        questions: 45,
-        duration: 60,
-        category: 'Main',
-        imagePath: 'assets/images/ban1.jpg',
-    ),
-    TestModel(
-        id: '2',
-        title: 'Mechanics Chapter Test',
-        subject: 'Physics',
-        questions: 20,
-        duration: 30,
-        category: 'Main',
-        imagePath: 'assets/images/ban2.jpg'
-    ),
-
-    // JEE Advanced Tests
-    TestModel(
-        id: '3',
-        title: 'Advanced Calculus Quiz',
-        subject: 'Maths',
-        questions: 30,
-        duration: 90,
-        category: 'Advanced',
-        imagePath: 'assets/images/ban.jpg'
-    ),
-
-    // Boards Tests
-    TestModel(
-        id: '4',
-        title: 'Chemistry Board Prep',
-        subject: 'Chemistry',
-        questions: 35,
-        duration: 45,
-        category: 'Boards',
-        imagePath: 'assets/images/ban1.jpg'
-    ),
-  ];
-
-  // Getters
-  List<TestModel> get tests => _tests;
+  List<TestModel> _tests = [];
   bool _isLoading = false;
+
+  List<TestModel> get tests => _tests;
   bool get isLoading => _isLoading;
 
-  // Constructor
+  // Constructor call karte hi data load ho jaye
   TestViewModel() {
     fetchTests();
   }
 
-  // Fetch Logic
+  // API Fetch Logic
   Future<void> fetchTests() async {
     _isLoading = true;
     notifyListeners();
 
-    // API Simulation
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final response = await http.get(
+        Uri.parse('https://core-backend-38rr.onrender.com/api/tests/all'),
+      );
 
-    _isLoading = false;
-    notifyListeners();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        // Response check: success true hona chahiye
+        if (data['success'] == true && data['tests'] != null) {
+          List<dynamic> testsJson = data['tests'];
+
+          // JSON ko Model mein convert karein
+          // (TestModel.fromJson ab updated structure handle karega)
+          _tests = testsJson.map((json) => TestModel.fromJson(json)).toList();
+        }
+      } else {
+        debugPrint("Server Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Exception in fetchTests: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  // Filter Logic
-  List<TestModel> getTestsByCategory(String category) {
-    if (category == "All") return _tests;
-    return _tests.where((t) => t.category == category).toList();
+  // UI ke filter tabs ke liye dynamic categories nikalna
+  List<String> get availableCategories {
+    // "All" pehle hona chahiye
+    Set<String> categories = {"All"};
+
+    // API se aayi category names ko add karein
+    for (var test in _tests) {
+      categories.add(test.category);
+    }
+
+    return categories.toList();
   }
 }

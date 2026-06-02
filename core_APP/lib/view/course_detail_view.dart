@@ -1,7 +1,8 @@
+import 'package:core_app/view/reel_view_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../viewModel/course_viewmodel.dart';
-import 'package:core_app/utils/app_colors.dart';
 
 class CourseDetailView extends StatelessWidget {
   final String courseId;
@@ -17,7 +18,6 @@ class CourseDetailView extends StatelessWidget {
       backgroundColor: Colors.black,
       body: CustomScrollView(
         slivers: [
-          // 1. Cinematic Header with Image
           SliverAppBar(
             expandedHeight: 320,
             pinned: true,
@@ -25,16 +25,11 @@ class CourseDetailView extends StatelessWidget {
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 children: [
-                  // Image as Background
                   SizedBox(
                     width: double.infinity,
                     height: double.infinity,
-                    child: Image.asset(
-                      course.imagePath,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.asset(course.imagePath, fit: BoxFit.cover),
                   ),
-                  // Dark Overlay for text readability
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -44,27 +39,11 @@ class CourseDetailView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Bottom gradient fade
-                  Positioned(
-                    bottom: 0,
-                    left: 0, right: 0,
-                    child: Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.black.withOpacity(0.0), Colors.black],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
 
-          // 2. Info Section
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -82,12 +61,20 @@ class CourseDetailView extends StatelessWidget {
                   ),
                   const SizedBox(height: 25),
 
-                  // Resume Button
+                  // RESUME BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        // Parameter hata diya gaya hai
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ReelsEarnScreen(),
+                          ),
+                        );
+                      },
                       icon: const Icon(Icons.play_arrow_rounded, size: 28),
                       label: const Text("RESUME LEARNING", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       style: ElevatedButton.styleFrom(
@@ -102,7 +89,6 @@ class CourseDetailView extends StatelessWidget {
             ),
           ),
 
-          // 3. Chapters List Header
           const SliverPadding(
             padding: EdgeInsets.fromLTRB(20, 30, 20, 10),
             sliver: SliverToBoxAdapter(
@@ -110,7 +96,6 @@ class CourseDetailView extends StatelessWidget {
             ),
           ),
 
-          // 4. Chapters List
           SliverList(
             delegate: SliverChildBuilderDelegate(
                   (context, index) => _buildChapterTile(context, index, course),
@@ -135,22 +120,29 @@ class CourseDetailView extends StatelessWidget {
     bool isLocked = index > 2;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
-      child: Row(
-        children: [
-          Text("${index + 1}".padLeft(2, '0'), style: TextStyle(color: course.themeColor, fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Text(course.chapters[index], style: const TextStyle(color: Colors.white, fontSize: 15)),
-          ),
-          Icon(isLocked ? Icons.lock_rounded : Icons.play_circle_fill_rounded,
-              color: isLocked ? Colors.white24 : Colors.purpleAccent),
-        ],
+      child: ListTile(
+        onTap: () {
+          if (!isLocked) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ReelsEarnScreen(),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Locked!")));
+          }
+        },
+        leading: Text("${index + 1}".padLeft(2, '0'),
+            style: TextStyle(color: course.themeColor, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(course.chapters[index], style: const TextStyle(color: Colors.white, fontSize: 15)),
+        trailing: Icon(isLocked ? Icons.lock_rounded : Icons.play_circle_fill_rounded,
+            color: isLocked ? Colors.white24 : Colors.purpleAccent),
       ),
     );
   }

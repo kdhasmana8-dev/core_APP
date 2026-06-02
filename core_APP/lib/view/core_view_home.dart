@@ -1,12 +1,25 @@
+import 'package:core_app/view/performance_view_screen.dart';
+import 'package:core_app/view/reel_view_screen.dart';
 import 'package:core_app/view/subject_details_view_screen.dart';
 import 'package:core_app/view/teacher_view_screen.dart';
+import 'package:core_app/view/test_details_screen.dart';
 import 'package:core_app/view/video_card_screen.dart';
+import 'package:core_app/viewModel/continue_watching_viewmodel.dart';
 import 'package:core_app/view_all_screen.dart' hide Topic;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../auth/auth_screen.dart';
+import '../model/drawer_model.dart';
+import '../model/new_arrival_model.dart';
+import '../model/subject_model.dart' hide Topic;
 import '../model/teacher_model.dart';
 import '../utils/app_colors.dart';
+import '../viewModel/newarrival_viewModel.dart';
+import '../viewModel/pyq_viewModel.dart';
+import '../viewModel/subject_viewModel.dart';
 import '../viewModel/teacher_viewModel.dart';
+import 'course_list_view.dart';
+import 'drawer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,1267 +29,1078 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
   int selectedCategory = 0;
-  final PageController _pageController = PageController(viewportFraction: 0.92);
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _currentPage = 0;
+
   final categories = [
     "All",
     "JEE (Main+Adv)",
   ];
 
-  final List<Topic> continueWatchingTopics = List.generate(5, (index) => Topic(
-    title: "Fisher Projection #${index + 1}",
-    duration: "00:35", // Resume time
-    educator: "Resume from 00:35",
-    videoUrl: "",
-    thumbnailUrl: "https://picsum.photos/300/400?random=$index",
-  ));
-  // Yeh list New Arrival ke liye hai
-  final List<Topic> newArrivalTopics = List.generate(5, (index) => Topic(
-    title: "Concept Reels #${index + 1}",
-    duration: "Fresh Learning Content",
-    educator: "Expert Teacher",
-    videoUrl: "",
-    thumbnailUrl: "https://picsum.photos/300/400?new=$index",
-  ));
-  // Yeh data aapke home screen ke sections ka source hoga
-  final List<Topic> physicsTopics = List.generate(5, (i) => Topic(title: "Physics Ch ${i+1}", duration: "1h", educator: "Lokesh Sir", videoUrl: "", thumbnailUrl: "https://picsum.photos/300/400?phy=$i"));
-  final List<Topic> chemistryTopics = List.generate(5, (i) => Topic(title: "Chem Ch ${i+1}", duration: "1h", educator: "Karishma Ma'am", videoUrl: "", thumbnailUrl: "https://picsum.photos/300/400?chem=$i"));
-  final List<Topic> mathsTopics = List.generate(5, (i) => Topic(title: "Maths Ch ${i+1}", duration: "1h", educator: "Teacher", videoUrl: "", thumbnailUrl: "https://picsum.photos/300/400?math=$i"));
-  final List<Topic> biologyTopics = List.generate(5, (i) => Topic(title: "Bio Ch ${i+1}", duration: "1h", educator: "Teacher", videoUrl: "", thumbnailUrl: "https://picsum.photos/300/400?bio=$i"));
-  final List<Topic> pyqTopics = List.generate(4, (i) => Topic(title: "JEE PYQ ${2024-i}", duration: "2h", educator: "Experts", videoUrl: "", thumbnailUrl: "https://picsum.photos/300/400?pyq=$i"));
+  Future<void> _onRefresh() async {
+    try {
+      await Provider.of<ContinueWatchingViewModel>(
+        context,
+        listen: false,
+      ).fetchContinueWatching();
+
+      await Provider.of<ContinueWatchingViewModel>(
+        context,
+        listen: false,
+      ).fetchUpcomingTests();
+    } catch (_) {}
+
+    await Provider.of<SubjectViewModel>(
+      context,
+      listen: false,
+    ).fetchSubjects();
+
+    await Provider.of<NewArrivalViewModel>(
+      context,
+      listen: false,
+    ).fetchNewArrivals();
+
+    await Provider.of<TeacherViewModel>(
+      context,
+      listen: false,
+    ).fetchTeachers();
+
+    await Provider.of<PYQViewModel>(
+      context,
+      listen: false,
+    ).fetchPYQs();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final continueWatchingViewModel = Provider.of<ContinueWatchingViewModel>(context, listen: false);
+        continueWatchingViewModel.fetchContinueWatching();
+        continueWatchingViewModel.fetchUpcomingTests();
+      } catch (e) {
+        debugPrint('ContinueWatchingViewModel not found: $e');
+      }
+      final subjectViewModel = Provider.of<SubjectViewModel>(context, listen: false);
+      subjectViewModel.fetchSubjects();
+
+      final newArrivalViewModel = Provider.of<NewArrivalViewModel>(context, listen: false);
+      newArrivalViewModel.fetchNewArrivals();
+
+      final teacherViewModel = Provider.of<TeacherViewModel>(context, listen: false);
+      teacherViewModel.fetchTeachers();
+
+      final pyqViewModel = Provider.of<PYQViewModel>(context, listen: false);
+      pyqViewModel.fetchPYQs();
+
+      // Add try-catch for continue watching
+      try {
+        final continueWatchingViewModel = Provider.of<ContinueWatchingViewModel>(context, listen: false);
+        continueWatchingViewModel.fetchContinueWatching();
+      } catch (e) {
+        debugPrint('ContinueWatchingViewModel not found: $e');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-        drawer: const Drawer(
-          child: Center(
-            child: Text("Drawer"),
-          ),
-        ),
-        resizeToAvoidBottomInset: false,
-        backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: false,
+      backgroundColor: AppColors.background,
 
-        body:
-        GestureDetector(
+      drawer: _buildDrawer(context),
+
+        body: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () {
-            FocusScope.of(context).unfocus();
-          },
-          child:
-          SafeArea(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SafeArea(
+            child: RefreshIndicator(
+              color: AppColors.primaryOrange,
+              backgroundColor: AppColors.cardSurface,
+              onRefresh: _onRefresh,
               child: SingleChildScrollView(
-                padding:  EdgeInsets.symmetric(horizontal: 17),
-              child: SizedBox(
-                width: double.infinity,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
+                physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 17),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 10),
+                _buildGreeting(),
+                const SizedBox(height: 12),
+                _buildSearchBar(),
+                const SizedBox(height: 12),
+                _buildFilters(),
+                const SizedBox(height: 12),
+                TopVideosSection(),
+                const SizedBox(height: 12),
 
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: AppColors.cardSurface,
-                          border: Border.all(
-                            color: AppColors.borderStroke,
-                          ),
-                        ),
-                        child: Image.asset("assets/images/logo5.png"),
-                      ),
+                // CONTINUE WATCHING SECTION - With error handling
+                _buildContinueWatchingSection(),
 
-                      const SizedBox(width: 12),
-
-                      Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: const [
-
-                          Text(
-                            "CORE",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 5,
-                            ),
-                          ),
-
-                          // Text(
-                          //   "CONCEPTREELS",
-                          //   style: TextStyle(
-                          //     color: AppColors.primaryOrange,
-                          //     fontSize: 10,
-                          //     letterSpacing: 2,
-                          //   ),
-                          // ),
+                // TOP SUBJECTS SECTION
+                Consumer<SubjectViewModel>(
+                  builder: (context, subjectViewModel, child) {
+                    if (subjectViewModel.hasSubjectsWithContent && !subjectViewModel.isLoading) {
+                      return Column(
+                        children: [
+                          _buildSectionHeader("Top Subjects", onViewAll: () {}),
+                          const SizedBox(height: 18),
+                          _buildTopSubjects(subjectViewModel.subjectsWithContent),
+                          const SizedBox(height: 22),
                         ],
-                      ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
 
-                      const Spacer(),
-
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.notifications_none,
-                          color: Colors.white,
+                Consumer<TeacherViewModel>(
+                  builder: (context, teacherViewModel, child) {
+                    if (teacherViewModel.isLoading) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: CircularProgressIndicator(),
                         ),
-                      ),
-
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primaryOrange,
-                          ),
-                          image: const DecorationImage(
-                            image: NetworkImage(
-                              "https://i.pravatar.cc/150",
-                            ),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // GREETING
-                      RichText(
-                        text: const TextSpan(
-                          children: [
-                            TextSpan(
-                              text: "Hello, ",
-                              style: TextStyle(fontSize: 22,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Poppins'),
-                            ),
-                            TextSpan(
-                              text: "Arjun 👋",
-                              style: TextStyle(fontSize: 18,
-                                  color: AppColors.primaryOrange,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'Poppins'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Let's continue your learning journey",
-                    style: TextStyle(color: AppColors.textSecondary,
-                        fontSize: 15,
-                        fontFamily: 'Poppins'),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// SEARCH BAR
-                  Row(
-                    children: [
-
-                      Expanded(
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.cardSurface,
-                            borderRadius:
-                            BorderRadius.circular(18),
-                            border: Border.all(
-                              color: AppColors.borderStroke,
-                            ),
-                          ),
-                          child: const TextField(
-                            style: TextStyle(
-                              color: Colors.white,
-                            ),
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: Colors.white70,
-                              ),
-                              hintText:
-                              "Search topic, series, PYQ...",
-                              hintStyle: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// FILTERS
-                  SizedBox(
-                    height: 35,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        bool selected =
-                            selectedCategory == index;
-
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedCategory = index;
-                            });
-                          },
-                          child: Container(
-                            margin:
-                            const EdgeInsets.only(right: 12),
-
-                            padding:
-                            const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.primaryOrange
-                                  : AppColors.cardSurface,
-
-                              borderRadius:
-                              BorderRadius.circular(14),
-
-                              border: Border.all(
-                                color: selected
-                                    ? AppColors.primaryOrange
-                                    : AppColors.borderStroke,
-                              ),
-                            ),
-
-                            child: Center(
-                              child: Text(
-                                categories[index],
-                                style: TextStyle(
-                                  color: selected
-                                      ? Colors.black
-                                      : Colors.white,
-                                  fontSize: 12,
-                                  fontWeight:
-                                  FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-
-                  /// VIDEO CAROUSEL SECTION
-                  Column(
-                    children: [
-                      SizedBox(
-                        height: 450,
-
-                        child: PageView.builder(
-                          controller: _pageController,
-
-
-                          itemCount: 5,
-
-                          onPageChanged: (index) {
-                            setState(() {
-                              _currentPage = index;
-                            });
-                          },
-
-                          itemBuilder: (context, index) {
-                            return AnimatedBuilder(
-                              animation: _pageController,
-
-                              builder: (context, child) {
-                                double scale = 1;
-
-                                if (_pageController.hasClients &&
-                                    _pageController.position.haveDimensions) {
-                                  scale =
-                                      (_pageController.page ?? 0) - index;
-
-                                  scale =
-                                      (1 - (scale.abs() * .12))
-                                          .clamp(.92, 1.0);
-                                }
-
-                                return Transform.scale(
-                                  scale: scale,
-                                  child: child,
-                                );
-                              },
-
-                              child: Container(
-                                margin: const EdgeInsets.only(
-                                  left: 2, // ← LEFT GAP FIX
-                                  right: 8,
-                                  top: 10,
-                                  bottom: 10,
-                                ),
-
-                                decoration: BoxDecoration(
-                                  borderRadius:
-                                  BorderRadius.circular(24),
-
-                                  border: Border.all(
-                                    color: AppColors.borderStroke,
-                                  ),
-                                ),
-
-                                child: ClipRRect(
-                                  borderRadius:
-                                  BorderRadius.circular(24),
-
-                                  child: Stack(
-                                    fit: StackFit.expand,
-
-                                    children: [
-
-                                      /// VIDEO
-                                      VideoCard(
-                                        key: ValueKey(index),
-
-                                        videoUrl:
-                                        "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
-                                      ),
-
-                                      /// TEXT
-                                      Positioned(
-                                        left: 18,
-                                        right: 18,
-                                        bottom: 24,
-
-                                        child: Column(
-                                          crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-
-                                          children: const [
-
-                                            Text(
-                                              "Fisher Projection Trick",
-
-                                              style: TextStyle(
-                                                color:
-                                                Colors.white,
-
-                                                fontSize: 14,
-
-                                                fontWeight:
-                                                FontWeight.w700,
-                                              ),
-                                            ),
-
-                                            SizedBox(height: 6),
-
-                                            Text(
-                                              "Chemistry",
-
-                                              style: TextStyle(
-                                                color:
-                                                Colors.white70,
-
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      /// DOTS
-                      Row(
-                        mainAxisAlignment:
-                        MainAxisAlignment.center,
-
-                        children: List.generate(
-                          5,
-                              (index) => AnimatedContainer(
-                            duration:
-                            const Duration(milliseconds: 300),
-
-                            margin:
-                            const EdgeInsets.symmetric(
-                                horizontal: 4),
-
-                            width:
-                            _currentPage == index
-                                ? 18
-                                : 8,
-
-                            height: 8,
-
-                            decoration: BoxDecoration(
-                              color:
-                              _currentPage == index
-                                  ? AppColors
-                                  .primaryOrange
-                                  : Colors.white24,
-
-                              borderRadius:
-                              BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-                  /// TOP SUBJECTS
-                  Row(
-                    children: [
-                      const Text(
-                        "Top Subjects",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-
-                        },
-                        child: const Text(
-                          "View all",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color:Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  SizedBox(
-                    height: 90,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-
-                        _subjectCard(
-                          Icons.science_outlined,
-                          "PHYSICS",
-                          "124 Chapters",
-                          physicsTopics
-                        ),
-
-                        _subjectCard(
-                          Icons.biotech_outlined,
-                          "CHEMISTRY",
-                          "118 Chapters",
-                          chemistryTopics
-                        ),
-
-                        _subjectCard(
-                          Icons.grid_view_rounded,
-                          "MATHEMATICS",
-                          "96 Chapters",
-                          mathsTopics
-                        ),
-
-                        _subjectCard(
-                          Icons.delivery_dining,
-                          "BIOLOGY",
-                          "64 Chapters",
-                          biologyTopics
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Heading aur View All Row
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Top Educators",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                "View all",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    //  Top Educators Section
-                      SizedBox(
-                        height: 120,
-                        child: Consumer<TeacherViewModel>(
-                          builder: (context, viewModel, child) {
-                            // API se data load ho raha hai
-                            if (viewModel.isLoading) {
-                              return const Center(child: CircularProgressIndicator());
-                            }
-
-                            // Agar list khali hai
-                            if (viewModel.teachers.isEmpty) {
-                              return const Center(child: Text("No educators found", style: TextStyle(color: Colors.white54)));
-                            }
-
-                            // API wala data yahan dikhega
-                            return ListView.builder(
+                      );
+                    }
+
+                    if (teacherViewModel.teachers.isNotEmpty) {
+                      return Column(
+                        children: [
+                          _buildSectionHeader("Top Educators", onViewAll: () {
+                          }),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 120,
+                            child: ListView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               scrollDirection: Axis.horizontal,
-                              itemCount: viewModel.teachers.length, // allTeachers ki jagah ye use karein
+                              itemCount: teacherViewModel.teachers.length,
                               itemBuilder: (context, index) {
-                                final teacher = viewModel.teachers[index]; // API se data uthayein
+                                final teacher = teacherViewModel.teachers[index];
                                 return _teacherCard(teacher);
                               },
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
+                _buildPracticeSection(),
+                const SizedBox(height: 22),
+
+                _buildPromotionalBanner(),
+                const SizedBox(height: 15),
+
+                Consumer<PYQViewModel>(
+                  builder: (context, pyqViewModel, child) {
+                    if (pyqViewModel.hasData && !pyqViewModel.isLoading) {
+                      return Column(
+                        children: [
+                          _buildSectionHeader("PYQ Series", onViewAll: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ViewAllScreen(
+                                  title: "PYQ Series",
+                                  topics: pyqViewModel.pyqs.map((pyq) => Topic(
+                                    title: pyq.title,
+                                    duration: "1h",
+                                    educator: pyq.subject.name,
+                                    videoUrl: pyq.videoUrl,
+                                    thumbnailUrl: pyq.thumbnail.isNotEmpty ? pyq.thumbnail : "https://picsum.photos/300/400",
+                                  )).toList(),
+                                  onTopicTap: (topic) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ReelsEarnScreen(
+                                          isVisible: true,
+                                          initialType: "PYQ",
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             );
-                          },
-                        ),
-                      ),
-                  const SizedBox(height: 22),
-
-                  //Practice & Improve
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "PRACTICE & IMPROVE",
-                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          }),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            height: 230,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: pyqViewModel.pyqs.length,
+                              itemBuilder: (context, index) {
+                                final pyq = pyqViewModel.pyqs[index];
+                                return _buildPYQCard(pyq);
+                              },
                             ),
-                            const Spacer(),
-                            // const Text(
-                            //   "See All",
-                            //   style: TextStyle(color: Colors.white, fontSize: 14),
-                            // ),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
+                // SUBJECT SECTIONS FROM API
+                Consumer<SubjectViewModel>(
+                  builder: (context, subjectViewModel, child) {
+                    if (subjectViewModel.isLoading && subjectViewModel.subjectsWithContent.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    if (subjectViewModel.errorMessage != null) {
+                      return Center(
+                        child: Column(
+                          children: [
+                            Text(
+                              'Error: ${subjectViewModel.errorMessage}',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: () {
+                                subjectViewModel.fetchSubjects();
+                              },
+                              child: const Text('Retry'),
+                            ),
                           ],
                         ),
-                      ),
-                      SizedBox(
-                        height: 100,
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _practiceCard(icon: Icons.quiz, title: "MCQ Quiz", value: "120+"),
-                            _practiceCard(icon: Icons.assignment, title: "Mock Test", value: "45"),
-                            _practiceCard(icon: Icons.trending_up, title: "Rank Boost", value: "85%"),
-                            _practiceCard(icon: Icons.emoji_events, title: "Challenges", value: "24"),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  /// BANNER
-                  Container(
-                    height: 150,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: AppColors.accentGradient,
-                      border: Border.all(
-                        color: AppColors.borderStroke,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        children: [
+                      );
+                    }
 
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                              mainAxisAlignment:
-                              MainAxisAlignment.center,
-                              children: const [
+                    if (subjectViewModel.subjectsWithContent.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
 
-                                Text(
-                                  "MASTER CONCEPTS.",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                    return Column(
+                      children: subjectViewModel.subjectsWithContent.map((section) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: _buildApiSubjectSection(section),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+                // NEW ARRIVAL SECTION
+                Consumer<NewArrivalViewModel>(
+                  builder: (context, viewModel, child) {
+                    if (viewModel.newArrivals.isEmpty && !viewModel.isLoading) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader("New Arrival", onViewAll: () {
+                          if (viewModel.newArrivals.isNotEmpty) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ViewAllScreen(
+                                  title: "New Arrival",
+                                  topics: viewModel.newArrivals
+                                      .map((arrival) => arrival.toTopic())
+                                      .toList(),
+                                  onTopicTap: (Topic p1) {  },
                                 ),
-
-                                Text(
-                                  "ACHIEVE MORE.",
-                                  style: TextStyle(
-                                    color: AppColors.primaryOrange,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-
-                                SizedBox(height: 10),
-
-                                Text(
-                                  "Learn. Practice. Rank Higher.",
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const Icon(
-                            Icons.science,
-                            color: AppColors.primaryOrange,
-                            size: 90,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  /// CONTINUE WATCHING
-                      Row(
-                        children: [
-                          const Text(
-                            "Continue Watching",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () {
-                              // Navigation: yahan continueWatchingTopics pass kar rahe hain
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ViewAllScreen(
-                                    title: "Continue Watching",
-                                    topics: continueWatchingTopics,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              "View all",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
                               ),
-                            ),
+                            );
+                          }
+                        }),
+                        const SizedBox(height: 18),
+
+                        if (viewModel.isLoading && viewModel.newArrivals.isEmpty)
+                          const SizedBox(
+                            height: 220,
+                            child: Center(child: CircularProgressIndicator()),
                           ),
-                        ],
-                      ),
 
-                      const SizedBox(height: 16),
-
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: continueWatchingTopics.length, // List length use karein
-                          itemBuilder: (_, index) {
-                            final topic = continueWatchingTopics[index];
-                            return Container(
-                              width: 145,
-                              margin: const EdgeInsets.only(right: 14),
-                              decoration: BoxDecoration(
-                                color: AppColors.cardSurface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.borderStroke),
-                              ),
+                        if (viewModel.errorMessage != null && viewModel.newArrivals.isEmpty)
+                          SizedBox(
+                            height: 220,
+                            child: Center(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Expanded(
-                                    child: Stack(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                          child: Image.network(
-                                            topic.thumbnailUrl,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        const Center(
-                                          child: CircleAvatar(
-                                            radius: 22,
-                                            backgroundColor: Colors.black54,
-                                            child: Icon(Icons.play_arrow, color: Colors.white),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  Text(
+                                    'Error: ${viewModel.errorMessage}',
+                                    style: const TextStyle(color: Colors.red),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          topic.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          topic.educator, // Yahan "Resume from..." show hoga
-                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
+                                  const SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      viewModel.fetchNewArrivals();
+                                    },
+                                    child: const Text('Retry'),
                                   ),
                                 ],
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 18),
+                            ),
+                          ),
 
-                  /// PYQ SERIES
-                  Row(
-                    children: [
-                      const Text(
-                        "PYQ Series",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ViewAllScreen(
-                                title: "PYQ Series",
-                                topics: pyqTopics,
-                              ),
+                        if (viewModel.newArrivals.isNotEmpty)
+                          _buildNewArrivals(viewModel.newArrivals),
+
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildUpcomingTests(),
+                const SizedBox(height: 24),
+
+                PerformanceOverviewCard(),
+              ],
+            ),
+          ),
+        ),
+      ),
+        ),
+    );
+  }
+
+  Widget _buildContinueWatchingSection() {
+    // Try to get the provider safely
+    try {
+      return Consumer<ContinueWatchingViewModel>(
+        builder: (context, viewModel, child) {
+          if (viewModel.isLoading && viewModel.continueWatching.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
+          if (viewModel.continueWatching.isNotEmpty) {
+            return Column(
+              children: [
+                _buildSectionHeader("Continue Watching", onViewAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ViewAllScreen(
+                        title: "Continue Watching",
+                        topics: viewModel.continueWatching.map((item) => Topic(
+                          title: item.title,
+                          duration: item.progress,
+                          educator: item.educator,
+                          videoUrl: item.videoUrl,
+                          thumbnailUrl: item.thumbnailUrl.isNotEmpty ? item.thumbnailUrl : "https://picsum.photos/300/400",
+                        )).toList(),
+                        onTopicTap: (topic) {
+                          _navigateToVideoPlayerWithProgress(
+                            topic.videoUrl,
+                            topic.title,
+                            viewModel.continueWatching.firstWhere(
+                                  (item) => item.title == topic.title,
+                              orElse: () => viewModel.continueWatching.first,
                             ),
                           );
                         },
-
-                        child: const Text(
-                          "View all",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12
-                          ),
-                        ),
                       ),
-                    ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 220,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: viewModel.continueWatching.length,
+                    itemBuilder: (context, index) {
+                      final item = viewModel.continueWatching[index];
+                      return _buildContinueWatchingCard(item);
+                    },
                   ),
+                ),
+                const SizedBox(height: 22),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      );
+    } catch (e) {
+      // Provider not registered yet
+      debugPrint('ContinueWatchingSection error: $e');
+      return const SizedBox.shrink();
+    }
+  }
 
-                  const SizedBox(height: 18),
+  Widget _buildContinueWatchingCard(ContinueWatchingItem item) {
+    double progress = item.durationSeconds > 0
+        ? item.watchedSeconds / item.durationSeconds
+        : 0.0;
 
-
-                  SizedBox(
-                    height: 230,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 4,
-                      itemBuilder: (_, index) {
+    return GestureDetector(
+      onTap: () {
+        _navigateToVideoPlayerWithProgress(item.videoUrl, item.title, item);
+      },
+      child: Container(
+        width: 180,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.borderStroke),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    child: Image.network(
+                      item.thumbnailUrl.isNotEmpty ? item.thumbnailUrl : "https://picsum.photos/300/400",
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          width: 155,
-                          margin: const EdgeInsets.only(right: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardSurface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColors.borderStroke,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius:
-                                  const BorderRadius.vertical(
-                                    top: Radius.circular(12),
-                                  ),
-                                  child: Image.network(
-                                    "https://picsum.photos/300/400?pyq=$index",
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                                  children: [
-
-                                    Text(
-                                      "JEE PYQ ${2024 - index}",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight:
-                                        FontWeight.w600,
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 6),
-
-                                    const Text(
-                                      "Physics • Chemistry",
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child: Icon(Icons.play_circle_filled, color: Colors.white54, size: 40),
                           ),
                         );
                       },
                     ),
                   ),
-
-                  const SizedBox(height: 32),
-                  buildSubjectSection(
-                    title: "Physics",
-                    titleColor: Colors.lightBlueAccent,
-                    topics: physicsTopics,
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      backgroundColor: Colors.black54,
+                      color: AppColors.primaryOrange,
+                      minHeight: 3,
+                    ),
                   ),
-
-                  const SizedBox(height: 35),
-
-                  buildSubjectSection(
-                    title: "Chemistry",
-                    titleColor: Colors.greenAccent,
-                    topics: chemistryTopics,
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
                   ),
-
-                  const SizedBox(height: 35),
-
-                  buildSubjectSection(
-                    title: "Maths",
-                    titleColor: Color(0xFFFFD180),
-                    topics: mathsTopics,
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-
-                  const SizedBox(height: 35),
-
-                  buildSubjectSection(
-                    title: "Biology",
-                    titleColor: AppColors.primaryOrange,
-                    topics: biologyTopics,
+                  const SizedBox(height: 4),
+                  Text(
+                    item.educator,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                    ),
                   ),
-
-                      /// NEW ARRIVAL
-                      Row(
-                        children: [
-                          const Text(
-                            "New Arrival",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () {
-                              // Navigation: Yahan hum newArrivalTopics pass kar rahe hain
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ViewAllScreen(
-                                    title: "New Arrival",
-                                    topics: newArrivalTopics,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              "View all",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: newArrivalTopics.length, // Yahan list length use karein
-                          itemBuilder: (_, index) {
-                            final topic = newArrivalTopics[index]; // List se item uthayein
-                            return Container(
-                              width: 180,
-                              margin: const EdgeInsets.only(right: 16),
-                              decoration: BoxDecoration(
-                                color: AppColors.cardSurface,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.borderStroke),
-                              ),
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                      child: Image.network(
-                                        topic.thumbnailUrl, // Dynamic image
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          topic.title, // Dynamic title
-                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          topic.duration, // Dynamic subtitle
-                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                  const SizedBox(height: 24),
-
-                      /// =======================
-                      /// UPCOMING TEST
-                      /// =======================
-
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardSurface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: AppColors.borderStroke,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  "UPCOMING TESTS",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text(
-                                    "View all",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(
-                              height: 16,
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.black,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: AppColors.borderStroke,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 68,
-                                    height: 78,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.cardSurface,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "MAY",
-                                          style: TextStyle(
-                                            color: AppColors.primaryOrange,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          height: 5,
-                                        ),
-                                        Text(
-                                          "18",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 30,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    width: 14,
-                                  ),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Full Syllabus Test",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          height: 4,
-                                        ),
-                                        Text(
-                                          "JEE (Main+Adv) • 180 Questions",
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          height: 10,
-                                        ),
-                                        Text(
-                                          "🕒 3:00 PM     ⏱ 3 Hours",
-                                          style: TextStyle(
-                                            color: Colors.white54,
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: AppColors.primaryOrange,
-                                      ),
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: const Text(
-                                      "Join",
-                                      style: TextStyle(
-                                        color: AppColors.primaryOrange,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  )
-                                ],
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      /// =======================
-                      /// PERFORMANCE OVERVIEW
-                      /// =======================
-
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardSurface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: AppColors.borderStroke,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  "PERFORMANCE OVERVIEW",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text(
-                                    "View all",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              ],
-                            ),
-                            const SizedBox(
-                              height: 20,
-                            ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _scoreCard(
-                                    "Tests Attempted",
-                                    "24",
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _scoreCard(
-                                    "Average Score",
-                                    "42.6",
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _scoreCard(
-                                    "Accuracy",
-                                    "68%",
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(
-                              height: 24,
-                            ),
-                            Container(
-                              height: 90,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    AppColors.primaryOrange.withOpacity(0.20),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.show_chart,
-                                  size: 80,
-                                  color: AppColors.primaryOrange,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-            ]
-                  )
-       ] ),
-
-            ),)
-          )
-        )
-            );
-
+                  const SizedBox(height: 4),
+                  Text(
+                    "Resume from ${item.progress}",
+                    style: const TextStyle(
+                      color: AppColors.primaryOrange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-  Widget _practiceCard({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
+
+  Widget _buildPYQCard(PYQItem pyq) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ReelsEarnScreen(
+              isVisible: true,
+              initialType: "PYQ",
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: 155,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderStroke),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Image.network(
+                  pyq.thumbnail.isNotEmpty ? pyq.thumbnail : "https://picsum.photos/300/400",
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[800],
+                      child: const Icon(Icons.video_library, color: Colors.white54),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pyq.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    pyq.subject.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Year: ${pyq.year}",
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppColors.background,
+      child: Column(
+        children: [
+
+          // USER INFO
+          Consumer<AuthViewModel>(
+            builder: (context, authVm, _) {
+
+              return UserAccountsDrawerHeader(
+                decoration: BoxDecoration(
+                  color: AppColors.cardSurface,
+                ),
+
+                accountName: Text(
+                  authVm.userName ?? "Student",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+
+                accountEmail: Text(
+                  authVm.userEmail ?? "",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                  ),
+                ),
+
+                currentAccountPicture: CircleAvatar(
+                  backgroundColor: AppColors.primaryOrange.withOpacity(.2),
+
+                  backgroundImage: NetworkImage(
+                    authVm.profileUrl != null &&
+                        authVm.profileUrl!.isNotEmpty
+                        ? authVm.profileUrl!
+                        : "https://i.pravatar.cc/150",
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // DRAWER ITEMS
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+
+                _buildDrawerItem(
+                  Icons.home_rounded,
+                  "Bookmarks",
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const BookmarksScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.library_books_rounded,
+                  "My Courses",
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CourseListView(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.book,
+                  "Mock Test",
+                      () {
+                    Navigator.pop(context);
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.bookmark_rounded,
+                  "Saved Reels",
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SavedReelsScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.download_rounded,
+                  "Downloads",
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DownloadsScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.analytics_rounded,
+                  "Privacy Policy",
+                      () {
+                    Navigator.push(context,MaterialPageRoute(builder: (context)=>PrivacyPolicyScreen()));
+                  },
+                ),
+
+                const Divider(
+                  color: AppColors.borderStroke,
+                ),
+
+                _buildDrawerItem(
+                  Icons.analytics_rounded,
+                  "Terms and Conditions",
+                      () {
+                    Navigator.push(context,MaterialPageRoute(builder: (context)=>TermsConditionsScreen( )));
+                  },
+                ),
+
+                const Divider(
+                  color: AppColors.borderStroke,
+                ),
+
+                _buildDrawerItem(
+                  Icons.card_giftcard,
+                  "Refer & Earn",
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReferEarnScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDrawerItem(
+                  Icons.logout_rounded,
+                  "Logout",
+                      () {
+                    Navigator.pop(context);
+                    _showLogoutDialog(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: AppColors.cardSurface,
+              border: Border.all(color: AppColors.borderStroke),
+            ),
+            child: Image.asset("assets/images/logo5.png"),
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Text(
+          "CORE",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 5,
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.notifications_none, color: Colors.white),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGreeting() {
+    return Consumer<AuthViewModel>(
+      builder: (context, authVm, child) {
+
+        String displayName = "Student";
+
+        if (authVm.userName != null &&
+            authVm.userName!.trim().isNotEmpty) {
+
+          displayName = authVm.userName!.split(' ').first;
+        }
+
+        return RichText(
+          text: TextSpan(
+            children: [
+
+              const TextSpan(
+                text: "Hello, ",
+                style: TextStyle(
+                  fontSize: 22,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              TextSpan(
+                text: "$displayName 👋",
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: AppColors.primaryOrange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderStroke),
+      ),
+      child: const TextField(
+        style: TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          prefixIcon: Icon(Icons.search, color: Colors.white70),
+          hintText: "Search topic, series, PYQ...",
+          hintStyle: TextStyle(color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return SizedBox(
+      height: 35,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          bool selected = selectedCategory == index;
+          return GestureDetector(
+            onTap: () => setState(() => selectedCategory = index),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primaryOrange : AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: selected ? AppColors.primaryOrange : AppColors.borderStroke),
+              ),
+              child: Text(
+                categories[index],
+                style: TextStyle(
+                  color: selected ? Colors.black : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, {VoidCallback? onViewAll}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (onViewAll != null)
+            GestureDetector(
+              onTap: onViewAll,
+              child: const Text(
+                "View all",
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopSubjects(List<SubjectSection> sections) {
+    List<SubjectItem> allSubjects = [];
+    for (var section in sections) {
+      allSubjects.addAll(section.subjects);
+    }
+
+    final seenIds = <String>{};
+    allSubjects = allSubjects.where((subject) => seenIds.add(subject.id)).toList();
+
+    final displaySubjects = allSubjects.take(6).toList();
+
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: displaySubjects.length,
+        itemBuilder: (context, index) {
+          final subject = displaySubjects[index];
+          return _buildSubjectCard(subject);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSubjectCard(SubjectItem subject) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SubjectDetailsScreen(
+              subjectName: subject.name,
+              subjectItem: subject,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: 85,
+        margin: const EdgeInsets.only(right: 14),
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderStroke),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            subject.icon.isNotEmpty
+                ? Image.network(
+              subject.icon,
+              width: 32,
+              height: 32,
+              errorBuilder: (_, _, _) => Icon(_getIconForSubject(subject.name), color: Colors.white, size: 32),
+            )
+                : Icon(_getIconForSubject(subject.name), color: Colors.white, size: 32),
+            const SizedBox(height: 14),
+            Text(
+              subject.name.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              subject.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 8),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getIconForSubject(String title) {
+    switch (title.toLowerCase()) {
+      case 'physics': return Icons.science_outlined;
+      case 'chemistry': return Icons.biotech_outlined;
+      case 'mathematics': return Icons.grid_view_rounded;
+      case 'biology': return Icons.delivery_dining;
+      default: return Icons.book_outlined;
+    }
+  }
+
+  Widget _teacherCard(Teacher teacher) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TeacherProfileScreen(teacher: teacher),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 16),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 35,
+              backgroundImage: NetworkImage(teacher.imageUrl),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              teacher.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPracticeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader("PRACTICE & IMPROVE"),
+        const SizedBox(height: 18),
+        SizedBox(
+          height: 100,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            children: [
+              _practiceCard(icon: Icons.quiz, title: "MCQ Quiz", value: "120+"),
+              _practiceCard(icon: Icons.assignment, title: "Mock Test", value: "45"),
+              _practiceCard(icon: Icons.trending_up, title: "Rank Boost", value: "85%"),
+              _practiceCard(icon: Icons.emoji_events, title: "Challenges", value: "24"),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _practiceCard({required IconData icon, required String title, required String value}) {
     return Container(
       width: 105,
       margin: const EdgeInsets.only(right: 14),
@@ -1288,320 +1112,474 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.primaryOrange, size: 28), // Orange color highlight ke liye
+          Icon(icon, color: AppColors.primaryOrange, size: 28),
           const SizedBox(height: 10),
-          Text(
-            value, // Value upar (e.g., 120+)
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(
-            title, // Title neeche
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 9)),
         ],
       ),
     );
   }
-  Widget _scoreCard(
-      String subject,
-      String score,
-      ) {
+
+  Widget _buildPromotionalBanner() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 18,
-      ),
+      height: 150,
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
+        gradient: AppColors.accentGradient,
+        border: Border.all(color: AppColors.borderStroke),
       ),
-      child: Column(
-        children: [
-
-          Text(
-            score,
-            style: const TextStyle(
-              color: AppColors.primaryOrange,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            subject,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _subjectCard(IconData icon, String title, String subtitle, List<Topic> topics) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ViewAllScreen(title: title, topics: topics)
-        ));
-      },
-      child: Container(
-        width: 85,
-        margin: const EdgeInsets.only(right: 14),
-        decoration: BoxDecoration(color: AppColors.cardSurface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.borderStroke)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 32),
-            const SizedBox(height: 14),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600)),
-            Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text("MASTER CONCEPTS.", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text("ACHIEVE MORE.", style: TextStyle(color: AppColors.primaryOrange, fontSize: 18, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 10),
+                  Text("Learn. Practice. Rank Higher.", style: TextStyle(color: Colors.white70)),
+                ],
+              ),
+            ),
+            const Icon(Icons.science, color: AppColors.primaryOrange, size: 90),
           ],
         ),
       ),
     );
   }
 
-  Widget _teacherCard(Teacher teacher) {
-    return GestureDetector(
-        onTap: () {
-           final teacherViewModel = Provider.of<TeacherViewModel>(context, listen: false);
+  Widget _buildApiSubjectSection(SubjectSection section) {
+    if (section.subjects.isEmpty) return const SizedBox.shrink();
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (section.bannerImage.isNotEmpty)
+          Container(
+            height: 120,
+            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              image: DecorationImage(
+                image: NetworkImage(section.bannerImage),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        _buildSectionHeader(
+          section.title,
+          onViewAll: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChangeNotifierProvider.value(
-                  value: teacherViewModel, // Yahan wahi instance pass ho raha hai
-                  child: TeacherProfileScreen(teacher: teacher),
+                builder: (_) => ViewAllScreen(
+                  title: section.title,
+                  topics: section.subjects.map((subject) => Topic(
+                    title: subject.name,
+                    duration: "30 min",
+                    educator: "Expert Teacher",
+                    videoUrl: "",
+                    thumbnailUrl: subject.image.isNotEmpty
+                        ? subject.image
+                        : "https://picsum.photos/300/400",
+                  )).toList(),
+
+                  onTopicTap: (Topic topic) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubjectDetailsScreen(
+                          subjectName: section.title,
+                          subjectSection: section,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             );
           },
-      child: Container(
-        margin: const EdgeInsets.only(right: 16),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 35,
-              backgroundImage: NetworkImage(teacher.imageUrl),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 245,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: section.subjects.length,
+            itemBuilder: (_, index) {
+              final subject = section.subjects[index];
+              return _buildSubjectItemCard(subject, section.title);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubjectItemCard(SubjectItem subject, String sectionTitle) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SubjectDetailsScreen(
+              subjectName: subject.name,
+              subjectItem: subject,
             ),
-            const SizedBox(height: 8),
-            Text(teacher.name, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          ),
+        );
+      },
+      child: Container(
+        width: 150,
+        margin: const EdgeInsets.only(right: 14),
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primaryOrange.withOpacity(.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                child: subject.image.isNotEmpty
+                    ? Image.network(
+                  subject.image,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(Icons.book, color: Colors.white54, size: 40),
+                      ),
+                    );
+                  },
+                )
+                    : Container(
+                  color: Colors.grey[800],
+                  child: const Center(
+                    child: Icon(Icons.book, color: Colors.white54, size: 40),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subject.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    subject.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-  Widget buildSubjectSection({
-    required String title,
-    required Color titleColor,
-    required List<Topic> topics, // Ye parameter add kiya
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(title, style: TextStyle(color: titleColor, fontSize: 16, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllScreen(title: title, topics: topics)));
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-               // decoration: BoxDecoration(color: AppColors.cardSurface, borderRadius: BorderRadius.circular(30))),
-                child: const Row(children: [Text("View all", style: TextStyle(color: Colors.white, fontSize: 12)), SizedBox(width: 6),]),
+
+  Widget _buildNewArrivals(List<NewArrival> newArrivals) {
+    return SizedBox(
+      height: 220,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: newArrivals.length,
+        itemBuilder: (context, index) {
+          final arrival = newArrivals[index];
+          return GestureDetector(
+            onTap: () {
+              _navigateToVideoPlayer(arrival.title);
+            },
+            child: Container(
+              width: 180,
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.borderStroke),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      child: Image.network(
+                        arrival.thumbnailUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(color: Colors.grey[800], child: const Icon(Icons.error_outline, color: Colors.white54));
+                        },
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(arrival.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(arrival.educator, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                        const SizedBox(height: 4),
+                        Text(_formatDuration(arrival.duration), style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+  Widget _buildUpcomingTests() {
+    return Consumer<ContinueWatchingViewModel>(
+      builder: (context, viewModel, child) {
+        if (viewModel.isLoadingUpcomingTests) {
+          return Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.borderStroke),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (viewModel.upcomingTests.isEmpty) {
+          return const SizedBox.shrink(); // Or show a message
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.borderStroke),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "UPCOMING TESTS",
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // Navigate to all upcoming tests screen
+                    },
+                    child: const Text("View all", style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...viewModel.upcomingTests.map((test) => _buildUpcomingTestCard(test)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUpcomingTestCard(UpcomingTestItem test) {
+    // Format date
+    String month = _getMonthAbbreviation(test.date.month);  // Use 'date' instead of 'startDateTime'
+    String day = test.date.day.toString();  // Use 'date' instead of 'startDateTime'
+
+    // Format time
+    String time = _formatTime(test.date);  // Use 'date' instead of 'startDateTime'
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderStroke),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 68,
+            height: 78,
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(month, style: const TextStyle(color: AppColors.primaryOrange)),
+                const SizedBox(height: 5),
+                Text(day, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(test.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text("${test.category} • ${test.questions} Questions", style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 4),
+                Text("By: ${test.teacher}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 10),
+                Text("🕒 $time     ⏱ ${test.duration} Minutes", style: const TextStyle(color: Colors.white54)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              // Navigate to test details/instructions screen
+              _navigateToTest(test);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.primaryOrange),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Text("Join", style: TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Add navigation method for tests
+  void _navigateToTest(UpcomingTestItem test) {
+    // Navigate to your test instructions screen
+    // You'll need to import the test screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TestInstructionsScreen(
+          testId: test.id,
+          testTitle: test.title,
+          duration: test.duration,
+          questionsCount: test.questions,
+          instructions: [], // Add instructions if available
         ),
+      ),
+    );
+  }
 
-        SizedBox(
-          height: 245,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: 5,
-            itemBuilder: (_, index) {
-              final physicsTitles = [
-                "Atoms",
-                "Motion",
-                "Waves",
-                "Optics",
-                "Current",
-              ];
+  String _getMonthAbbreviation(int month) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return months[month - 1];
+  }
 
-              final chemistryTitles = [
-                "Mole Concept",
-                "Atomic Structure",
-                "Thermodynamics",
-                "Redox",
-                "Organic",
-              ];
+  String _formatTime(DateTime dateTime) {
+    int hour = dateTime.hour;
+    String period = hour >= 12 ? 'PM' : 'AM';
+    int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:${dateTime.minute.toString().padLeft(2, '0')} $period';
+  }
+  void _navigateToVideoPlayer(String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ReelsEarnScreen(
+          isVisible: true,
+          initialType: "PYQ",
+        ),
+      ),
+    );
+  }
 
-              final mathsTitles = [
-                "Algebra",
-                "Calculus",
-                "Matrices",
-                "Probability",
-                "Vectors",
-              ];
+  void _navigateToVideoPlayerWithProgress(String videoUrl, String title, ContinueWatchingItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ReelsEarnScreen(
+          isVisible: true,
+          initialType: "PYQ",
+        ),
+      ),
+    );
+  }
 
-              final biologyTitles = [
-                "Cell",
-                "Genetics",
-                "Evolution",
-                "Ecology",
-                "Biotech",
-              ];
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    if (minutes >= 60) {
+      final hours = minutes ~/ 60;
+      final remainingMinutes = minutes % 60;
+      return '$hours hr ${remainingMinutes > 0 ? '$remainingMinutes min' : ''}';
+    }
+    return '$minutes min';
+  }
 
-              final images = [
-                "https://images.unsplash.com/photo-1532187643603-ba119ca4109e",
-                "https://images.unsplash.com/photo-1532094349884-543bc11b234d",
-                "https://images.unsplash.com/photo-1509228468518-180dd4864904",
-                "https://images.unsplash.com/photo-1532634993-15f421e42ec0",
-                "https://images.unsplash.com/photo-1507413245164-6160d8298b31",
-              ];
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.textSecondary),
+      title: Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+      onTap: onTap,
+    );
+  }
 
-              String cardTitle = "";
-
-              if (title == "Physics") {
-                cardTitle = physicsTitles[index];
-              } else if (title == "Chemistry") {
-                cardTitle = chemistryTitles[index];
-              } else if (title == "Maths") {
-                cardTitle = mathsTitles[index];
-              } else {
-                cardTitle = biologyTitles[index];
-              }
-
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SubjectDetailsScreen(
-                            subjectName: cardTitle,
-                          ),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: 150,
-                  margin: const EdgeInsets.only(
-                    right: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardSurface,
-                    borderRadius:
-                    BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.primaryOrange
-                          .withOpacity(.25),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                    children: [
-
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius:
-                          const BorderRadius.vertical(
-                            top: Radius.circular(10),
-                          ),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-
-                              Image.network(
-                                images[index],
-                                fit: BoxFit.cover,
-                              ),
-
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient:
-                                  LinearGradient(
-                                    begin:
-                                    Alignment.topCenter,
-                                    end: Alignment
-                                        .bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black
-                                          .withOpacity(
-                                          .85),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      Padding(
-                        padding:
-                        const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-
-                            Text(
-                              cardTitle,
-                              maxLines: 2,
-
-                              overflow:
-                              TextOverflow
-                                  .ellipsis,
-                              style:
-                              const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight:
-                                FontWeight.w600,
-                              ),
-                            ),
-
-                            const SizedBox(height: 5),
-
-                            Text(
-                              "${index + 1} videos",
-                              style:
-                              const TextStyle(
-                                color:
-                                Colors.white70,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel", style: TextStyle(color: Colors.white))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE57373)),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const OttAuthScreen()),
+                    (route) => false,
               );
             },
+            child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

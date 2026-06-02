@@ -1,3 +1,8 @@
+import 'package:core_app/viewModel/continue_watching_viewModel.dart' hide ContinueWatchingViewModel;
+import 'package:core_app/viewModel/continue_watching_viewmodel.dart';
+import 'package:core_app/viewModel/newarrival_viewModel.dart';
+import 'package:core_app/viewModel/pyq_viewModel.dart';
+import 'package:core_app/viewModel/subject_viewModel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +16,8 @@ import 'package:core_app/viewModel/progress_viewModel.dart';
 import 'package:core_app/viewModel/reel_viewModel.dart';
 import 'package:core_app/viewModel/teacher_viewModel.dart';
 import 'package:core_app/viewModel/test_viewModel.dart';
+
+import 'model/drawer_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,11 +43,16 @@ class AppProvider extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CourseViewModel()),
+        ChangeNotifierProvider(create: (_) => AuthViewModel()..loadUser(),),
         ChangeNotifierProvider(create: (_) => ReelsEarnViewModel()),
         ChangeNotifierProvider(create: (_) => TestViewModel()),
         ChangeNotifierProvider(create: (_) => ProfileViewModel()),
         ChangeNotifierProvider(create: (_) => ProgressViewModel()),
         ChangeNotifierProvider(create: (_) => TeacherViewModel()),
+        ChangeNotifierProvider(create: (_) => SubjectViewModel()),
+        ChangeNotifierProvider(create: (_) => NewArrivalViewModel()),
+        ChangeNotifierProvider(create: (_) => ContinueWatchingViewModel()),
+        ChangeNotifierProvider(create: (_) => PYQViewModel()),
       ],
       child: const MyApp(),
     );

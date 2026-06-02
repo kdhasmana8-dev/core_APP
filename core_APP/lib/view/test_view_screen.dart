@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
 import '../viewModel/test_viewModel.dart';
+import '../model/test_model.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -13,9 +14,7 @@ class TestScreen extends StatefulWidget {
 
 class _TestScreenState extends State<TestScreen> {
   String _selectedCategory = "All";
-  final List<String> _filters = ["All", "Main", "Advanced", "Boards"];
 
-  // Reusable Gradient using AppColors
   BoxDecoration get _orangeGradientDecoration => BoxDecoration(
     gradient: LinearGradient(
       colors: [AppColors.primaryOrange.withOpacity(0.8), AppColors.primaryOrange],
@@ -34,9 +33,10 @@ class _TestScreenState extends State<TestScreen> {
             return Center(child: CircularProgressIndicator(color: AppColors.primaryOrange));
           }
 
-          final filteredSections = _selectedCategory == "All"
-              ? ["Main", "Advanced", "Boards"]
-              : [_selectedCategory];
+          final filters = ["All", ...viewModel.tests.map((e) => e.category).toSet()];
+          final displayTests = _selectedCategory == "All"
+              ? viewModel.tests
+              : viewModel.tests.where((t) => t.category == _selectedCategory).toList();
 
           return CustomScrollView(
             slivers: [
@@ -58,18 +58,16 @@ class _TestScreenState extends State<TestScreen> {
                   ),
                 ),
               ),
-
-              // Filter Section
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: 60,
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     scrollDirection: Axis.horizontal,
-                    itemCount: _filters.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemCount: filters.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
-                      final filter = _filters[index];
+                      final filter = filters[index];
                       final isSelected = _selectedCategory == filter;
                       return GestureDetector(
                         onTap: () => setState(() => _selectedCategory = filter),
@@ -86,29 +84,12 @@ class _TestScreenState extends State<TestScreen> {
                   ),
                 ),
               ),
-
-              ...filteredSections.map((section) {
-                final tests = viewModel.tests.where((t) => t.category == section).toList();
-                if (tests.isEmpty) return const SliverToBoxAdapter();
-
-                return SliverMainAxisGroup(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                        child: Text("JEE $section Tests",
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildTestCard(tests[index]),
-                        childCount: tests.length,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildTestCard(displayTests[index]),
+                  childCount: displayTests.length,
+                ),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: 30)),
             ],
           );
@@ -117,7 +98,11 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
-  Widget _buildTestCard(test) {
+  Widget _buildTestCard(TestModel test) {
+    bool hasValidImage = test.imagePath.isNotEmpty &&
+        test.imagePath != "null" &&
+        test.imagePath.startsWith("http");
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
@@ -130,15 +115,15 @@ class _TestScreenState extends State<TestScreen> {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: SizedBox(
-              height: 120,
+              height: 100,
               width: double.infinity,
-              child: Image.asset(
+              child: hasValidImage
+                  ? Image.network(
                 test.imagePath,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(decoration: _orangeGradientDecoration, child: const Icon(Icons.quiz_rounded, size: 50, color: Colors.white24));
-                },
-              ),
+                errorBuilder: (context, error, stackTrace) => _dummyImageWidget(),
+              )
+                  : _dummyImageWidget(),
             ),
           ),
           Padding(
@@ -155,17 +140,28 @@ class _TestScreenState extends State<TestScreen> {
                     _infoChip("${test.duration} Mins", Icons.timer_rounded),
                   ],
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 10),
                 Container(
                   decoration: _orangeGradientDecoration.copyWith(borderRadius: BorderRadius.circular(12)),
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const TestInstructionsScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TestInstructionsScreen(
+                            testId: test.id,
+                            testTitle: test.title,
+                            duration: test.duration,
+                            questionsCount: test.questions,
+                            instructions: test.instructions,
+                          ),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      minimumSize: const Size(double.infinity, 45),
+                      minimumSize: const Size(double.infinity, 40),
                     ),
                     child: const Text("START TEST", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
@@ -174,6 +170,15 @@ class _TestScreenState extends State<TestScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _dummyImageWidget() {
+    return Container(
+      color: Colors.grey[900],
+      child: const Center(
+        child: Icon(Icons.quiz_rounded, size: 50, color: Colors.white),
       ),
     );
   }

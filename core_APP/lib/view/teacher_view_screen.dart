@@ -1,5 +1,7 @@
+import 'package:core_app/view/reel_view_screen.dart';
 import 'package:flutter/material.dart';
 import '../model/teacher_model.dart';
+import '../utils/app_colors.dart'; // Ensure correct import
 
 class TeacherProfileScreen extends StatelessWidget {
   final Teacher teacher;
@@ -8,7 +10,7 @@ class TeacherProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background, // Aapke AppColors ka use
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -40,6 +42,81 @@ class TeacherProfileScreen extends StatelessWidget {
                   Wrap(
                     spacing: 10,
                     children: teacher.subjects.map((s) => Chip(label: Text(s))).toList(),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // SECTION: Study Reels in Grid
+                  const Text("Study Reels", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+
+
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.75,
+                    ),
+                    itemCount: teacher.reels.where((reel) => reel.type.toLowerCase() == 'study').length,
+                    itemBuilder: (context, index) {
+                      final reel = teacher.reels.where((reel) => reel.type.toLowerCase() == 'study').toList()[index];
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => ReelsEarnScreen(
+                                    isVisible: true,
+                                    initialType: reel.type)),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[900],
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.play_circle_fill, color: Colors.orange, size: 50),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      reel.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      reel.chapter,
+                                      maxLines: 1,
+                                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

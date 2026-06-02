@@ -4,8 +4,14 @@ import '../model/teacher_model.dart';
 class ViewAllScreen extends StatelessWidget {
   final String title;
   final List<Topic> topics;
+  final Function(Topic) onTopicTap; // Yeh naya callback hai
 
-  const ViewAllScreen({super.key, required this.title, required this.topics});
+  const ViewAllScreen({
+    super.key,
+    required this.title,
+    required this.topics,
+    required this.onTopicTap // Constructor mein add kiya
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +33,11 @@ class ViewAllScreen extends StatelessWidget {
         itemCount: topics.length,
         itemBuilder: (context, index) {
           final topic = topics[index];
-          return _buildTopicItem(topic);
+          // GestureDetector wrap kiya
+          return GestureDetector(
+              onTap: () => onTopicTap(topic),
+              child: _buildTopicItem(topic)
+          );
         },
       ),
     );
@@ -39,7 +49,6 @@ class ViewAllScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Thumbnail container
           Stack(
             alignment: Alignment.topLeft,
             children: [
@@ -48,13 +57,12 @@ class ViewAllScreen extends StatelessWidget {
                 width: 140,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  color: Colors.grey[800], // Placeholder color
+                  color: Colors.grey[800],
                   image: topic.thumbnailUrl.isNotEmpty
                       ? DecorationImage(image: NetworkImage(topic.thumbnailUrl), fit: BoxFit.cover)
                       : null,
                 ),
               ),
-              // Dynamic Lock Icon based on model
               Padding(
                 padding: const EdgeInsets.all(6.0),
                 child: Icon(
@@ -66,7 +74,6 @@ class ViewAllScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 16),
-          // Text details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,4 +97,3 @@ class ViewAllScreen extends StatelessWidget {
     );
   }
 }
-

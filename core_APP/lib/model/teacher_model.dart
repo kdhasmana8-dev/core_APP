@@ -10,7 +10,8 @@ class Teacher {
   final String qualification;
   final String status;
   final List<String> subjects;
-  final List<Chapter> chapters;
+  final List<Reel> reels; // New field
+
 
   Teacher({
     required this.id,
@@ -24,7 +25,7 @@ class Teacher {
     required this.qualification,
     required this.status,
     required this.subjects,
-    this.chapters = const [],
+    this.reels = const [],
   });
 
   factory Teacher.fromJson(Map<String, dynamic> json) {
@@ -40,14 +41,44 @@ class Teacher {
       qualification: json['qualification'] ?? "",
       status: json['status'] ?? "",
       subjects: List<String>.from(json['subjects'] ?? []),
-      // Agar API se 'chapters' aate hain, toh ye automatically handle karega
-      chapters: (json['chapters'] as List<dynamic>?)
-          ?.map((e) => Chapter.fromJson(e))
+      reels: (json['reels'] as List<dynamic>?)
+          ?.map((e) => Reel.fromJson(e))
           .toList() ?? [],
     );
   }
 }
 
+class Reel {
+  final String id;
+  final String title;
+  final String videoUrl;
+  final String subject;
+  final String topic;
+  final String chapter; // Added
+  final String type;    // Added
+
+  Reel({
+    required this.id,
+    required this.title,
+    required this.videoUrl,
+    required this.subject,
+    required this.topic,
+    required this.chapter,
+    required this.type,
+  });
+
+  factory Reel.fromJson(Map<String, dynamic> json) {
+    return Reel(
+      id: json['_id'] ?? "",
+      title: json['title'] ?? "",
+      videoUrl: json['videoUrl'] ?? "",
+      subject: json['subject'] ?? "",
+      topic: json['topic'] ?? "",
+      chapter: json['chapter'] ?? "",
+      type: json['type'] ?? "Study",
+    );
+  }
+}
 class Chapter {
   final String title;
   final List<Topic> topics;
