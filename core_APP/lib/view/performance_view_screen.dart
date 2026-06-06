@@ -4,18 +4,27 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PerformanceOverviewCard extends StatefulWidget {
-  const PerformanceOverviewCard({super.key});
+  final String testId;
+
+  const PerformanceOverviewCard({
+    super.key,
+    required this.testId,
+  });
 
   @override
-  State<PerformanceOverviewCard> createState() => _PerformanceOverviewCardState();
+  State<PerformanceOverviewCard> createState() =>
+      _PerformanceOverviewCardState();
 }
 
 class _PerformanceOverviewCardState extends State<PerformanceOverviewCard> {
   bool isLoading = true;
-  int totalAttempts = 0;
-  double overallAccuracy = 0;
-  int totalCorrect = 0;
-  List<Map<String, dynamic>> processedSubjects = [];
+
+  int totalQuestions = 0;
+  int correctAnswers = 0;
+  int wrongAnswers = 0;
+  double percentage = 0;
+
+  List<Map<String, dynamic>> results = [];
 
   @override
   void initState() {
@@ -28,60 +37,50 @@ class _PerformanceOverviewCardState extends State<PerformanceOverviewCard> {
       final prefs = await SharedPreferences.getInstance();
       String token = prefs.getString("user_token") ?? "";
 
+      final url =
+          "https://core-backend-38rr.onrender.com/api/assessments/submit/${widget.testId}";
+
+      debugPrint("🌐 API URL => $url");
+      debugPrint("🔑 TOKEN => $token");
+
       final response = await http.get(
-        Uri.parse("https://core-backend-38rr.onrender.com/api/test-attempt/performance-analysis"),
-        headers: {"Authorization": "Bearer $token", "Content-Type": "application/json"},
+        Uri.parse(url),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          totalAttempts = data['totalAttempts'] ?? 0;
-          List rawSubjects = data['subjectAnalysis'] ?? [];
+      debugPrint("📩 RESPONSE BODY => ${response.body}");
+      debugPrint("📊 STATUS CODE => ${response.statusCode}");
 
-          // Grouping logic for duplicate subjects (e.g., 'physics' and 'Physics')
-          Map<String, Map<String, dynamic>> groupMap = {};
-          int grandCorrect = 0;
-          int grandTotal = 0;
+      final data = jsonDecode(response.body);
 
-          for (var item in rawSubjects) {
-            String subName = item['subject'].toString().toLowerCase();
-            int corr = int.tryParse(item['correct'].toString()) ?? 0;
-            int wrong = int.tryParse(item['wrong'].toString()) ?? 0;
-            int total = int.tryParse(item['total'].toString()) ?? 0;
+      if (response.statusCode == 200 && data['success'] == true) {
+        final performance = data['performance'];
 
-            if (!groupMap.containsKey(subName)) {
-              groupMap[subName] = {'subject': item['subject'], 'correct': 0, 'wrong': 0, 'total': 0};
-            }
-            groupMap[subName]!['correct'] += corr;
-            groupMap[subName]!['wrong'] += wrong;
-            groupMap[subName]!['total'] += total;
+        setState(() {
+          totalQuestions = performance['total_questions'] ?? 0;
+          correctAnswers = performance['correct_answers'] ?? 0;
+          wrongAnswers = performance['wrong_answers'] ?? 0;
+          percentage =
+              double.tryParse(performance['percentage'].toString()) ?? 0;
 
-            grandCorrect += corr;
-            grandTotal += total;
-          }
-
-          processedSubjects = groupMap.values.map((e) {
-            double acc = e['total'] > 0 ? (e['correct'] / e['total']) * 100 : 0;
-            e['accuracy'] = acc.toStringAsFixed(1);
-            e['weak'] = acc < 50; // Logic for weak area
-            return e;
-          }).toList();
-
-          totalCorrect = grandCorrect;
-          overallAccuracy = grandTotal > 0 ? (grandCorrect / grandTotal) * 100 : 0;
-        }
+          results = List<Map<String, dynamic>>.from(data['results'] ?? []);
+          isLoading = false;
+        });
+      } else {
+        debugPrint("❌ API FAILED OR SUCCESS FALSE");
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      debugPrint("PERFORMANCE ERROR => $e");
+      debugPrint("🔥 ERROR => $e");
+      setState(() => isLoading = false);
     }
-    if (mounted) setState(() => isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator(color: Colors.orange));
-
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -89,65 +88,119 @@ class _PerformanceOverviewCardState extends State<PerformanceOverviewCard> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white10),
       ),
+      child: isLoading
+          ? const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(color: Colors.orange),
+        ),
+      )
+          : Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "PERFORMANCE OVERVIEW",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              Expanded(child: _scoreCard("Total", "$totalQuestions")),
+              const SizedBox(width: 10),
+              Expanded(child: _scoreCard("Correct", "$correctAnswers")),
+              const SizedBox(width: 10),
+              Expanded(child: _scoreCard("Wrong", "$wrongAnswers")),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _scoreCard(
+                  "Score",
+                  "${percentage.toStringAsFixed(1)}%",
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            "Question Review",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          ...results.map((q) => _buildResultTile(q)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultTile(Map q) {
+    bool isCorrect = q['is_correct'] == true;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("PERFORMANCE OVERVIEW", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              TextButton(onPressed: () {}, child: const Text("View all", style: TextStyle(color: Colors.white, fontSize: 12))),
-            ],
+          Text(
+            q['question'] ?? "",
+            style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(child: _scoreCard("Attempts", totalAttempts.toString())),
-              const SizedBox(width: 10),
-              Expanded(child: _scoreCard("Correct", totalCorrect.toString())),
-              const SizedBox(width: 10),
-              Expanded(child: _scoreCard("Accuracy", "${overallAccuracy.toStringAsFixed(1)}%")),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            "Your: ${q['selected_option'] ?? 'Not Answered'}",
+            style: TextStyle(
+              color: isCorrect ? Colors.green : Colors.red,
+            ),
           ),
-          const SizedBox(height: 24),
-          const Text("Subject Analysis", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 14),
-          ...processedSubjects.map((sub) => _buildSubjectTile(sub)),
+          Text(
+            "Correct: ${q['correct_answer'] ?? ''}",
+            style: const TextStyle(color: Colors.white70),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSubjectTile(Map sub) {
+  Widget _scoreCard(String title, String value) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(sub['subject'], style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-            Text("Correct: ${sub['correct']}", style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ]),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text("${sub['accuracy']}%", style: TextStyle(color: sub['weak'] ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
-            Text("Wrong: ${sub['wrong']}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          ]),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(14),
       ),
-    );
-  }
-
-  Widget _scoreCard(String title, String score) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(18)),
       child: Column(
         children: [
-          Text(score, style: const TextStyle(color: Colors.orange, fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.orange,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
         ],
       ),
     );

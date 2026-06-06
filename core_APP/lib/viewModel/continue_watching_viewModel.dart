@@ -61,7 +61,8 @@ class UpcomingTestItem {
   final DateTime date;
   final DateTime endDate;
   final int duration;
-  final String status;
+  final bool isActive;
+
   final String subject;
   final String teacher;
   final String teacherImage;
@@ -76,7 +77,7 @@ class UpcomingTestItem {
     required this.date,
     required this.endDate,
     required this.duration,
-    required this.status,
+    required this.isActive,
     required this.subject,
     required this.teacher,
     required this.teacherImage,
@@ -85,26 +86,34 @@ class UpcomingTestItem {
   });
 
   factory UpcomingTestItem.fromJson(Map<String, dynamic> json) {
-    print("PARSING UPCOMING TEST: $json");
-
     return UpcomingTestItem(
       id: json['_id'] ?? '',
       title: json['title'] ?? '',
-      examType: json['examType'] ?? '',
-      questions: json['questions'] ?? 0,
-      date: json['date'] != null
-          ? DateTime.parse(json['date'])
-          : DateTime.now(),
-      endDate: json['endDate'] != null
-          ? DateTime.parse(json['endDate'])
-          : DateTime.now(),
+
+      // ✅ FIXED (backend type)
+      examType: json['type'] ?? '',
+
+      questions: json['total_questions'] ?? 0,
       duration: json['duration'] ?? 0,
-      status: json['status'] ?? '',
-      subject: json['subject'] ?? '',
-      teacher: json['teacher'] ?? '',
-      teacherImage: json['teacherImage'] ?? '',
-      category: json['category'] ?? '',
-      image: json['image'] ?? '',
+
+      isActive: json['is_active'] ?? false,
+
+      date: json['start_at'] != null
+          ? DateTime.parse(json['start_at'])
+          : DateTime.now(),
+
+      endDate: json['end_at'] != null
+          ? DateTime.parse(json['end_at'])
+          : DateTime.now(),
+
+      subject: json['subject_id']?['name'] ?? 'All Subjects',
+      teacher: json['teacher_id']?['teacherName'] ?? 'Unknown',
+
+      teacherImage: json['teacher_id']?['profile_image'] ?? '',
+
+      category: json['exam_id']?['name'] ?? '',
+
+      image: json['thumbnail_url'] ?? '',
     );
   }
 }
@@ -198,50 +207,38 @@ class ContinueWatchingViewModel extends ChangeNotifier {
     _isLoadingUpcomingTests = true;
     notifyListeners();
 
-    print("FETCH UPCOMING TESTS API CALLED");
-
     try {
       final token = await _getToken();
-      print("FETCH TOKEN FOR UPCOMING TESTS => $token");
 
       final response = await http.get(
-        Uri.parse('https://core-backend-38rr.onrender.com/api/upcoming-tests'),
+        Uri.parse(
+          'https://core-backend-38rr.onrender.com/api/assessments/upcoming',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
 
-      print("UPCOMING TESTS STATUS => ${response.statusCode}");
-      print("UPCOMING TESTS RESPONSE => ${response.body}");
+      final data = json.decode(response.body);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print("DECODED DATA => $data");
+      if (response.statusCode == 200 && data['success'] == true) {
+        final List list = data['tests'] ?? [];
 
-        if (data['success'] == true && data['data'] != null) {
-          // The API returns 'data' array, not 'tests'
-          _upcomingTests = (data['data'] as List)
-              .map((item) => UpcomingTestItem.fromJson(item))
-              .toList();
-          print("UPCOMING TESTS COUNT => ${_upcomingTests.length}");
-        } else {
-          print("NO DATA FOUND IN RESPONSE");
-          _upcomingTests = [];
-        }
+        _upcomingTests = list
+            .map((item) => UpcomingTestItem.fromJson(item))
+            .toList();
       } else {
-        print("Failed to fetch upcoming tests. Status: ${response.statusCode}");
         _upcomingTests = [];
       }
     } catch (e) {
-      print("UPCOMING TESTS ERROR => $e");
+      debugPrint("UPCOMING TEST ERROR => $e");
       _upcomingTests = [];
-    } finally {
-      _isLoadingUpcomingTests = false;
-      notifyListeners();
     }
-  }
 
+    _isLoadingUpcomingTests = false;
+    notifyListeners();
+  }
   // =========================
   // SAVE PROGRESS
   // =========================

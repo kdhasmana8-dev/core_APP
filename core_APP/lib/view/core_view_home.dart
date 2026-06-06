@@ -22,12 +22,18 @@ import 'course_list_view.dart';
 import 'drawer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String examId;
+  final String TestId;
+
+  const HomeScreen({
+    super.key,
+    required this.examId,
+    required this.TestId,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   int selectedCategory = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -144,21 +150,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // TOP SUBJECTS SECTION
                 Consumer<SubjectViewModel>(
-                  builder: (context, subjectViewModel, child) {
-                    if (subjectViewModel.hasSubjectsWithContent && !subjectViewModel.isLoading) {
-                      return Column(
-                        children: [
-                          _buildSectionHeader("Top Subjects", onViewAll: () {}),
-                          const SizedBox(height: 18),
-                          _buildTopSubjects(subjectViewModel.subjectsWithContent),
-                          const SizedBox(height: 22),
-                        ],
-                      );
+                  builder: (context, vm, child) {
+
+                    if (vm.isLoading) {
+                      return const CircularProgressIndicator();
                     }
-                    return const SizedBox.shrink();
+
+                    if (vm.subjects.isEmpty) {
+                      return const SizedBox();
+                    }
+
+                    return Column(
+                      children: [
+                        _buildSectionHeader(
+                          "Top Subjects",
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        _buildTopSubjects(
+                          vm.subjects,
+                        ),
+
+                        const SizedBox(height: 22),
+                      ],
+                    );
                   },
                 ),
-
                 Consumer<TeacherViewModel>(
                   builder: (context, teacherViewModel, child) {
                     if (teacherViewModel.isLoading) {
@@ -204,22 +222,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 Consumer<PYQViewModel>(
                   builder: (context, pyqViewModel, child) {
-                    if (pyqViewModel.hasData && !pyqViewModel.isLoading) {
-                      return Column(
-                        children: [
-                          _buildSectionHeader("PYQ Series", onViewAll: () {
+                    if (pyqViewModel.isLoading) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    if (pyqViewModel.pyqs.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Column(
+                      children: [
+                        _buildSectionHeader(
+                          "PYQ Series",
+                          onViewAll: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ViewAllScreen(
                                   title: "PYQ Series",
-                                  topics: pyqViewModel.pyqs.map((pyq) => Topic(
-                                    title: pyq.title,
-                                    duration: "1h",
-                                    educator: pyq.subject.name,
-                                    videoUrl: pyq.videoUrl,
-                                    thumbnailUrl: pyq.thumbnail.isNotEmpty ? pyq.thumbnail : "https://picsum.photos/300/400",
-                                  )).toList(),
+                                  topics: pyqViewModel.pyqs.map((pyq) {
+                                    return Topic(
+                                      title: pyq.title,
+                                      duration: "${(pyq.duration / 60).ceil()} min",
+                                      educator: pyq.teacherName,
+                                      videoUrl: pyq.videoUrl,
+                                      thumbnailUrl: pyq.thumbnailUrl.isNotEmpty
+                                          ? pyq.thumbnailUrl
+                                          : "https://picsum.photos/300/400",
+                                    );
+                                  }).toList(),
                                   onTopicTap: (topic) {
                                     Navigator.push(
                                       context,
@@ -234,35 +267,115 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             );
-                          }),
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            height: 230,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              itemCount: pyqViewModel.pyqs.length,
-                              itemBuilder: (context, index) {
-                                final pyq = pyqViewModel.pyqs[index];
-                                return _buildPYQCard(pyq);
-                              },
-                            ),
+                          },
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        SizedBox(
+                          height: 230,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: pyqViewModel.pyqs.length,
+                            itemBuilder: (context, index) {
+                              final pyq = pyqViewModel.pyqs[index];
+
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ReelsEarnScreen(
+                                        isVisible: true,
+                                        initialType: "PYQ",
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 170,
+                                  margin: const EdgeInsets.only(right: 15),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Image.network(
+                                          pyq.thumbnailUrl.isNotEmpty
+                                              ? pyq.thumbnailUrl
+                                              : "https://picsum.photos/300/400",
+                                          height: 150,
+                                          width: 170,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) {
+                                            return Container(
+                                              height: 150,
+                                              width: 170,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.image),
+                                            );
+                                          },
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 8),
+
+                                      Text(
+                                        pyq.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 4),
+
+                                      Text(
+                                        pyq.topicName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 2),
+
+                                      Text(
+                                        "${pyq.pyqYear} • ${pyq.teacherName}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 18),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
+                        ),
+
+                        const SizedBox(height: 18),
+                      ],
+                    );
                   },
                 ),
-
                 // SUBJECT SECTIONS FROM API
                 Consumer<SubjectViewModel>(
                   builder: (context, subjectViewModel, child) {
-                    if (subjectViewModel.isLoading && subjectViewModel.subjectsWithContent.isEmpty) {
+
+                    if (subjectViewModel.isLoading &&
+                        subjectViewModel.subjects.isEmpty) {
                       return const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32.0),
+                          padding: EdgeInsets.all(32),
                           child: CircularProgressIndicator(),
                         ),
                       );
@@ -274,12 +387,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               'Error: ${subjectViewModel.errorMessage}',
-                              style: const TextStyle(color: Colors.red),
+                              style: const TextStyle(
+                                color: Colors.red,
+                              ),
                             ),
                             const SizedBox(height: 10),
                             ElevatedButton(
                               onPressed: () {
-                                subjectViewModel.fetchSubjects();
+                                subjectViewModel.fetchSubjects(
+
+                                );
                               },
                               child: const Text('Retry'),
                             ),
@@ -288,92 +405,99 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }
 
-                    if (subjectViewModel.subjectsWithContent.isEmpty) {
+                    if (subjectViewModel.subjects.isEmpty) {
                       return const SizedBox.shrink();
                     }
 
                     return Column(
-                      children: subjectViewModel.subjectsWithContent.map((section) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: _buildApiSubjectSection(section),
-                        );
-                      }).toList(),
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+
+                        _buildSectionHeader(
+                          "All Subjects",
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        SizedBox(
+                          height: 245,
+                          child: ListView.builder(
+                            scrollDirection:
+                            Axis.horizontal,
+                            padding:
+                            const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
+                            itemCount:
+                            subjectViewModel.subjects.length,
+                            itemBuilder:
+                                (context, index) {
+
+                              final subject =
+                              subjectViewModel.subjects[index];
+
+                              return _buildSubjectItemCard(
+                                subject,
+                                "All Subjects",
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
+                const SizedBox(height: 44),
 
-                // NEW ARRIVAL SECTION
                 Consumer<NewArrivalViewModel>(
                   builder: (context, viewModel, child) {
-                    if (viewModel.newArrivals.isEmpty && !viewModel.isLoading) {
-                      return const SizedBox.shrink();
+                    if (viewModel.isLoading) {
+                      return const SizedBox(
+                        height: 220,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
                     }
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader("New Arrival", onViewAll: () {
-                          if (viewModel.newArrivals.isNotEmpty) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ViewAllScreen(
-                                  title: "New Arrival",
-                                  topics: viewModel.newArrivals
-                                      .map((arrival) => arrival.toTopic())
-                                      .toList(),
-                                  onTopicTap: (Topic p1) {  },
-                                ),
+                    if (viewModel.errorMessage != null &&
+                        viewModel.newArrivals.isEmpty) {
+                      return SizedBox(
+                        height: 220,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                viewModel.errorMessage!,
+                                style: const TextStyle(color: Colors.red),
                               ),
-                            );
-                          }
-                        }),
-                        const SizedBox(height: 18),
-
-                        if (viewModel.isLoading && viewModel.newArrivals.isEmpty)
-                          const SizedBox(
-                            height: 220,
-                            child: Center(child: CircularProgressIndicator()),
+                              const SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: viewModel.fetchNewArrivals,
+                                child: const Text("Retry"),
+                              )
+                            ],
                           ),
+                        ),
+                      );
+                    }
 
-                        if (viewModel.errorMessage != null && viewModel.newArrivals.isEmpty)
-                          SizedBox(
-                            height: 220,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Error: ${viewModel.errorMessage}',
-                                    style: const TextStyle(color: Colors.red),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      viewModel.fetchNewArrivals();
-                                    },
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                    if (viewModel.newArrivals.isEmpty) {
+                      return const SizedBox(
+                        height: 100,
+                        child: Center(child: Text("No new arrivals")),
+                      );
+                    }
 
-                        if (viewModel.newArrivals.isNotEmpty)
-                          _buildNewArrivals(viewModel.newArrivals),
-
-                        const SizedBox(height: 24),
-                      ],
-                    );
+                    /// 👇 ONLY CALLING WIDGET FUNCTION HERE
+                    return _buildNewArrivals(viewModel.newArrivals);
                   },
                 ),
                 const SizedBox(height: 10),
                 _buildUpcomingTests(),
                 const SizedBox(height: 24),
 
-                PerformanceOverviewCard(),
+                PerformanceOverviewCard(testId: widget.TestId),
               ],
             ),
           ),
@@ -548,88 +672,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppColors.primaryOrange,
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPYQCard(PYQItem pyq) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ReelsEarnScreen(
-              isVisible: true,
-              initialType: "PYQ",
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: 155,
-        margin: const EdgeInsets.only(right: 16),
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderStroke),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Image.network(
-                  pyq.thumbnail.isNotEmpty ? pyq.thumbnail : "https://picsum.photos/300/400",
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[800],
-                      child: const Icon(Icons.video_library, color: Colors.white54),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    pyq.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    pyq.subject.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Year: ${pyq.year}",
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -959,27 +1001,28 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Widget _buildTopSubjects(List<SubjectSection> sections) {
-    List<SubjectItem> allSubjects = [];
-    for (var section in sections) {
-      allSubjects.addAll(section.subjects);
-    }
-
-    final seenIds = <String>{};
-    allSubjects = allSubjects.where((subject) => seenIds.add(subject.id)).toList();
-
-    final displaySubjects = allSubjects.take(6).toList();
+  Widget _buildTopSubjects(
+      List<SubjectItem> subjects,
+      ) {
+    final displaySubjects =
+    subjects.take(6).toList();
 
     return SizedBox(
       height: 90,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+        ),
         itemCount: displaySubjects.length,
         itemBuilder: (context, index) {
-          final subject = displaySubjects[index];
-          return _buildSubjectCard(subject);
+
+          final subject =
+          displaySubjects[index];
+
+          return _buildSubjectCard(
+            subject,
+          );
         },
       ),
     );
@@ -1307,61 +1350,168 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNewArrivals(List<NewArrival> newArrivals) {
-    return SizedBox(
-      height: 220,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: newArrivals.length,
-        itemBuilder: (context, index) {
-          final arrival = newArrivals[index];
-          return GestureDetector(
-            onTap: () {
-              _navigateToVideoPlayer(arrival.title);
-            },
-            child: Container(
-              width: 180,
-              margin: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.borderStroke),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: Image.network(
-                        arrival.thumbnailUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(color: Colors.grey[800], child: const Icon(Icons.error_outline, color: Colors.white54));
-                        },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader("New Arrival"),
+
+        const SizedBox(height: 16),
+
+        SizedBox(
+          height: 230,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: newArrivals.length,
+            itemBuilder: (context, index) {
+              final arrival = newArrivals[index];
+
+              return GestureDetector(
+                onTap: () {
+                  _navigateToVideoPlayer(arrival.title);
+                },
+                child: Container(
+                  width: 150,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.borderStroke),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+
+                      // 📸 IMAGE SECTION
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+
+                              Image.network(
+                                arrival.thumbnailUrl.isNotEmpty
+                                    ? arrival.thumbnailUrl
+                                    : "https://picsum.photos/300/400",
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) {
+                                  return Container(
+                                    color: Colors.grey.shade900,
+                                    child: const Icon(
+                                      Icons.play_circle_fill,
+                                      color: Colors.white54,
+                                      size: 40,
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              // 🔥 gradient overlay
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.7),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // ❤️ likes badge
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    "❤️ ${arrival.likes}",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+
+                      // 📝 INFO SECTION
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+
+                            Text(
+                              arrival.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            Text(
+                              arrival.educator,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+
+                            const SizedBox(height: 6),
+
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.play_circle_outline,
+                                  size: 14,
+                                  color: AppColors.primaryOrange,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatDuration(arrival.duration),
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(arrival.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text(arrival.educator, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-                        const SizedBox(height: 4),
-                        Text(_formatDuration(arrival.duration), style: const TextStyle(color: Colors.white54, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 10),
+      ],
     );
   }
   Widget _buildUpcomingTests() {

@@ -1,8 +1,7 @@
 // lib/viewModel/pyq_viewmodel.dart
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class PYQViewModel extends ChangeNotifier {
   List<PYQItem> _pyqs = [];
@@ -14,7 +13,7 @@ class PYQViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get hasData => _pyqs.isNotEmpty;
 
-  final String baseUrl = "https://core-backend-38rr.onrender.com";
+  final String apiUrl = "https://core-backend-38rr.onrender.com/api/reels/pyq";
 
   Future<void> fetchPYQs() async {
     _isLoading = true;
@@ -22,96 +21,126 @@ class PYQViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString("user_token");
-
-      if (token == null || token.isEmpty) {
-        _errorMessage = 'No authentication token found';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-
       final response = await http.get(
-        Uri.parse('$baseUrl/api/pyqs'),
+        Uri.parse(apiUrl),
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          "Content-Type": "application/json",
         },
       );
 
-      debugPrint("PYQ STATUS CODE: ${response.statusCode}");
-      debugPrint("PYQ RESPONSE: ${response.body}");
+      debugPrint("PYQ STATUS => ${response.statusCode}");
+      debugPrint("PYQ RESPONSE => ${response.body}");
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
+        final Map<String, dynamic> jsonData =
+        jsonDecode(response.body);
 
-        if (responseData['success'] == true) {
-          final List<dynamic> data = responseData['data'];
-          _pyqs = data.map((item) => PYQItem.fromJson(item)).toList();
-          debugPrint("PYQs LOADED: ${_pyqs.length}");
+        if (jsonData["success"] == true) {
+          final List<dynamic> reels =
+              jsonData["reels"] ?? [];
+
+          _pyqs = reels
+              .map((e) => PYQItem.fromJson(e))
+              .toList();
+
+          debugPrint("TOTAL PYQS => ${_pyqs.length}");
         } else {
-          _errorMessage = responseData['message'] ?? 'Failed to load PYQs';
+          _errorMessage = "No PYQs found";
         }
-      } else if (response.statusCode == 401) {
-        _errorMessage = 'Session expired. Please login again.';
       } else {
-        _errorMessage = 'Failed to load PYQs: ${response.statusCode}';
+        _errorMessage =
+        "Server Error (${response.statusCode})";
       }
-      notifyListeners();
     } catch (e) {
-      _errorMessage = 'Error: $e';
-      debugPrint("FETCH PYQS ERROR: $e");
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      _errorMessage = e.toString();
+      debugPrint("PYQ ERROR => $e");
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
   void clearPYQs() {
-    _pyqs = [];
+    _pyqs.clear();
     notifyListeners();
   }
 }
 
 class PYQItem {
   final String id;
-  final SubjectInfo subject;
   final String title;
   final String description;
   final String videoUrl;
-  final String thumbnail;
-  final String chapter;
-  final String topic;
-  final int year;
+  final String thumbnailUrl;
+  final int duration;
+  final int pyqYear;
+  final bool isPyq;
+  final bool isPro;
+  final bool isActive;
   final String status;
+
+  final String topicId;
+  final String topicName;
+
+  final String teacherId;
+  final String teacherName;
+  final String teacherEmail;
+  final String teacherPhone;
+  final String teacherDescription;
+  final int teacherExperience;
+  final String teacherQualification;
 
   PYQItem({
     required this.id,
-    required this.subject,
     required this.title,
     required this.description,
     required this.videoUrl,
-    required this.thumbnail,
-    required this.chapter,
-    required this.topic,
-    required this.year,
+    required this.thumbnailUrl,
+    required this.duration,
+    required this.pyqYear,
+    required this.isPyq,
+    required this.isPro,
+    required this.isActive,
     required this.status,
+    required this.topicId,
+    required this.topicName,
+    required this.teacherId,
+    required this.teacherName,
+    required this.teacherEmail,
+    required this.teacherPhone,
+    required this.teacherDescription,
+    required this.teacherExperience,
+    required this.teacherQualification,
   });
 
   factory PYQItem.fromJson(Map<String, dynamic> json) {
+    final topic = json["topic_id"] ?? {};
+    final teacher = json["teacher_id"] ?? {};
+
     return PYQItem(
-      id: json['_id'] ?? '',
-      subject: SubjectInfo.fromJson(json['subject'] ?? {}),
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      videoUrl: json['videoUrl'] ?? '',
-      thumbnail: json['thumbnail'] ?? '',
-      chapter: json['chapter'] ?? '',
-      topic: json['topic'] ?? '',
-      year: json['year'] ?? 0,
-      status: json['status'] ?? '',
+      id: json["_id"] ?? "",
+      title: json["title"] ?? "",
+      description: json["description"] ?? "",
+      videoUrl: json["video_url"] ?? "",
+      thumbnailUrl: json["thumbnail_url"] ?? "",
+      duration: json["duration"] ?? 0,
+      pyqYear: json["pyq_year"] ?? 0,
+      isPyq: json["is_pyq"] ?? false,
+      isPro: json["is_pro"] ?? false,
+      isActive: json["is_active"] ?? false,
+      status: json["status"] ?? "",
+
+      topicId: topic["_id"] ?? "",
+      topicName: topic["name"] ?? "",
+
+      teacherId: teacher["_id"] ?? "",
+      teacherName: teacher["teacherName"] ?? "",
+      teacherEmail: teacher["email"] ?? "",
+      teacherPhone: teacher["phone"] ?? "",
+      teacherDescription: teacher["description"] ?? "",
+      teacherExperience: teacher["experience"] ?? 0,
+      teacherQualification:
+      teacher["qualification"] ?? "",
     );
   }
 }

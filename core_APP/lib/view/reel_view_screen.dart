@@ -9,7 +9,8 @@ import '../viewModel/reel_viewModel.dart';
 
 class ReelsEarnScreen extends StatefulWidget {
   final bool isVisible;
-  final String? initialType; // "Study", "PYQ" ya null (For You ke liye)
+  final String? initialType;
+
 
   const ReelsEarnScreen({super.key, this.isVisible = true, this.initialType});
 
@@ -19,15 +20,27 @@ class ReelsEarnScreen extends StatefulWidget {
 
 class _ReelsEarnScreenState extends State<ReelsEarnScreen> {
   int _activeTabIndex = 0;
+  bool _showOverlay = false;
+
 
   @override
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _onTabChanged(_activeTabIndex);
 
-      context.read<ReelsEarnViewModel>().loadFilters();
+      // context.read<ReelsEarnViewModel>().loadFilters();
     });
     super.initState();
+
+    void _triggerOverlay() {
+      setState(() => _showOverlay = true);
+
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() => _showOverlay = false);
+        }
+      });
+    }
 
     // 1. Initial Type ke basis par Tab set karein
     if (widget.initialType != null) {
@@ -254,14 +267,28 @@ class _ReelsEarnScreenState extends State<ReelsEarnScreen> {
                 },
                 itemCount: vm.reels.length,
                 itemBuilder: (_, index) => ReelVideoCard(
-                  key: ValueKey(vm.reels[index].videoId),
+                  key: ValueKey(vm.reels[index].reelId),
                   reel: vm.reels[index],
                   index: index,
                   isActive: widget.isVisible && index == vm.currentIndex,
                   onLike: () => vm.like(index),
                   onSave: () => vm.saveReel(index),
                   onShare: () => Share.share(vm.reels[index].videoUrl),
-                  onDownload: (){}
+                  onDownload: () async {
+                    final url = await vm.downloadReel(
+                      vm.reels[index].reelId,
+                    );
+
+                    if (url != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Download tracked successfully"),
+                        ),
+                      );
+
+                      debugPrint("DOWNLOAD URL => $url");
+                    }
+                  },
                 ),
               );
             },
@@ -413,7 +440,7 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
 
       context.read<ReelsEarnViewModel>()
           .saveContinueWatching(
-        videoId: widget.reel.videoId,
+        videoId: widget.reel.reelId,
         watchedSeconds: watchedSeconds,
         durationSeconds: durationSeconds,
       );
@@ -470,7 +497,7 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
 
       context.read<ReelsEarnViewModel>()
           .saveContinueWatching(
-        videoId: widget.reel.videoId,
+        videoId: widget.reel.reelId,
         watchedSeconds:
         _controller.value.position.inSeconds,
         durationSeconds:
@@ -580,46 +607,59 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
         ),
 
         // Mute Toggle Icon (Top Right)
-                Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Play/Pause Icon
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      shape: BoxShape.circle
-                  ),
-                  child: Icon(
-                    _isPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                ),
-
-                const SizedBox(width: 20),
-
-                // Mute Toggle Icon
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _isMuted = !_isMuted;
-                    _controller.setVolume(_isMuted ? 0 : 1);
-                  }),
-                  child: Container(
+        if (_showOverlay)
+          Center(
+            child: AnimatedOpacity(
+              opacity: _showOverlay ? 1 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Play/Pause Icon
+                  Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
-                        shape: BoxShape.circle
+                      color: Colors.black.withOpacity(0.4),
+                      shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _isMuted ? Icons.volume_off : Icons.volume_up,
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: Colors.white,
-                      size: 20,
+                      size: 40,
                     ),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 20),
+
+                  // Volume Icon
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isMuted = !_isMuted;
+                        _controller.setVolume(_isMuted ? 0 : 1);
+                      });
+
+                      _triggerOverlay();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isMuted
+                            ? Icons.volume_off_rounded
+                            : Icons.volume_up_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         // SIDE BUTTONS
@@ -630,39 +670,55 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
             mainAxisSize: MainAxisSize.min,
             children: [
               // LIKE BUTTON
-              IconButton(
-                padding: EdgeInsets.zero,
-                icon: Icon(
-                  Icons.favorite_rounded,
-                  color: widget.reel.isLiked ? Colors.red : AppColors.textPrimary,
-                  size: 34,
-                ),
-                onPressed: widget.onLike,
+              Consumer<ReelsEarnViewModel>(
+                builder: (context, vm, _) {
+                  final reel = vm.reels[widget.index];
+
+                  return Column(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.favorite_rounded,
+                          color: reel.isLiked ? Colors.red : Colors.white,
+                          size: 34,
+                        ),
+                        onPressed: () {
+                          final reel = vm.reels[widget.index];
+
+                          if (reel.isLiked) {
+                            vm.like(widget.index);
+                          } else {
+                            vm.unlike(widget.index);
+                          }
+                        },
+                      ),
+
+                      Text(
+                        reel.likes >= 1000
+                            ? "${(reel.likes / 1000).toStringAsFixed(1)}K"
+                            : "${reel.likes}",
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  );
+                },
               ),
-              Text(
-                widget.reel.likes >= 1000
-                    ? "${(widget.reel.likes / 1000).toStringAsFixed(1)}K"
-                    : "${widget.reel.likes}",
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+
               const SizedBox(height: 18),
 
               // COMMENT BUTTON
               IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.chat_bubble_outline_rounded,
-                  color: AppColors.textPrimary,
-                  size: 32,
-                ),
-                onPressed: () {},
+                icon: const Icon(Icons.comment, color: Colors.white),
+                onPressed: () {
+                  showCommentSheet(
+                    context,
+                    widget.reel.reelId,
+                    context.read<ReelsEarnViewModel>(),
+                  );
+                },
               ),
               const Text(
-                "128",
+                " ",
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
@@ -720,18 +776,32 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
 
 
               // SAVE BUTTON (Connected to ViewModel)
-              IconButton(
-                padding: EdgeInsets.zero,
-                icon: Icon(
-                  widget.reel.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                  color: widget.reel.isSaved ? AppColors.primaryOrange : AppColors.textPrimary,
-                  size: 34,
-                ),
-                onPressed: widget.onSave,
-              ),
-              const Text(
-                "Save",
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 12),
+              Consumer<ReelsEarnViewModel>(
+                builder: (context, vm, _) {
+                  final reel = vm.reels[widget.index];
+
+                  return Column(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          reel.isSaved
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          color: reel.isSaved
+                              ? AppColors.primaryOrange
+                              : Colors.white,
+                          size: 34,
+                        ),
+                        onPressed: () => vm.saveReel(widget.index),
+                      ),
+
+                      const Text(
+                        "Save",
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 18),
 
@@ -994,6 +1064,142 @@ class _ReelsVideoCardState extends State<ReelVideoCard>
           fontWeight: FontWeight.w400,
         ),
       ),
+    );
+  }
+
+  void showCommentSheet(BuildContext context, String videoId, ReelsEarnViewModel vm) {
+    final TextEditingController controller = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+
+                // ===== HEADER =====
+                const Text(
+                  "Comments",
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ===== COMMENTS LIST =====
+                Expanded(
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: vm.fetchComments(videoId),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final comments = snapshot.data!;
+
+                      if (comments.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            "No comments yet",
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          final c = comments[index];
+
+                          return ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              child: Icon(Icons.person, color: Colors.white),
+                            ),
+                            title: Text(
+                              c["userName"] ?? "User",
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            subtitle: Text(
+                              c["comment"] ?? "",
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ===== INPUT BOX =====
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: "Write a comment...",
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          filled: true,
+                          fillColor: Colors.white10,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+          IconButton(
+            icon: const Icon(Icons.send, color: Colors.blue),
+              onPressed: () async {
+                print("SEND CLICKED");
+
+                if (controller.text.trim().isEmpty) {
+                  print("EMPTY COMMENT");
+                  return;
+                }
+
+                final ok = await vm.commentReel(
+                  videoId,
+                  controller.text.trim(),
+                );
+
+                print("RESULT => $ok");
+
+                if (ok) {
+                  controller.clear();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Comment Added"),
+                    ),
+                  );
+                }
+              }
+                    )
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

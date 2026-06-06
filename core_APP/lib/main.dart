@@ -45,7 +45,7 @@ class AppProvider extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CourseViewModel()),
         ChangeNotifierProvider(create: (_) => AuthViewModel()..loadUser(),),
         ChangeNotifierProvider(create: (_) => ReelsEarnViewModel()),
-        ChangeNotifierProvider(create: (_) => TestViewModel()),
+        ChangeNotifierProvider(create: (_) => AssessmentViewModel()),
         ChangeNotifierProvider(create: (_) => ProfileViewModel()),
         ChangeNotifierProvider(create: (_) => ProgressViewModel()),
         ChangeNotifierProvider(create: (_) => TeacherViewModel()),

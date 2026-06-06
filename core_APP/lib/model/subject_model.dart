@@ -106,17 +106,23 @@ class SubjectSection {
 // Add this to your section_model.dart
 class SubjectItem {
   final String id;
+  final String examID;
+
   final String name;
   final String description;
   final String image;
   final String icon;
   final String status;
+
   final int totalVideos;
   final int totalChapters;
+
   final List<Chapter> chapters;
+  final List<TopicItem> topics;
 
   SubjectItem({
     required this.id,
+    required this.examID,
     required this.name,
     required this.description,
     required this.image,
@@ -125,26 +131,29 @@ class SubjectItem {
     this.totalVideos = 0,
     this.totalChapters = 0,
     this.chapters = const [],
+    this.topics = const [],
   });
 
   factory SubjectItem.fromJson(Map<String, dynamic> json) {
-    debugPrint("      SubjectItem.fromJson: ${json['name']}");
-    debugPrint("        - ID: ${json['_id']}");
-    debugPrint("        - Status: ${json['status']}");
-    debugPrint("        - Total Videos: ${json['totalVideos']}");
-    debugPrint("        - Total Chapters: ${json['totalChapters']}");
+    debugPrint("SubjectItem.fromJson => ${json['name']}");
 
-    // Parse chapters if they exist
     List<Chapter> parsedChapters = [];
     if (json['chapters'] != null && json['chapters'] is List) {
       parsedChapters = (json['chapters'] as List)
           .map((chapter) => Chapter.fromJson(chapter))
           .toList();
-      debugPrint("        - Chapters count: ${parsedChapters.length}");
+    }
+
+    List<TopicItem> parsedTopics = [];
+    if (json['topics'] != null && json['topics'] is List) {
+      parsedTopics = (json['topics'] as List)
+          .map((topic) => TopicItem.fromJson(topic))
+          .toList();
     }
 
     return SubjectItem(
       id: json['_id'] ?? '',
+      examID: json['examId'] ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       image: json['image'] ?? '',
@@ -153,12 +162,14 @@ class SubjectItem {
       totalVideos: json['totalVideos'] ?? 0,
       totalChapters: json['totalChapters'] ?? 0,
       chapters: parsedChapters,
+      topics: parsedTopics,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
+      'examId': examID,
       'name': name,
       'description': description,
       'image': image,
@@ -167,57 +178,50 @@ class SubjectItem {
       'totalVideos': totalVideos,
       'totalChapters': totalChapters,
       'chapters': chapters.map((c) => c.toJson()).toList(),
+      'topics': topics.map((t) => t.toJson()).toList(),
     };
   }
 }
-
 // Keep Chapter and TopicItem for backward compatibility if needed
 class Chapter {
   final String? id;
   final String name;
-  final List<TopicItem> topics;
 
   Chapter({
     this.id,
     required this.name,
-    required this.topics,
   });
 
   factory Chapter.fromJson(Map<String, dynamic> json) {
-    List<TopicItem> parsedTopics = [];
-
-    if (json['topics'] != null && json['topics'] is List) {
-      parsedTopics = (json['topics'] as List)
-          .map((topic) => TopicItem.fromJson(topic))
-          .toList();
-    }
-
     return Chapter(
       id: json['_id'],
-      name: json['chapter'] ?? json['name'] ?? '',
-      topics: parsedTopics,
+      name: json['name'] ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'chapter': name,
-      'topics': topics.map((t) => t.toJson()).toList(),
+      '_id': id,
+      'name': name,
     };
   }
 }
 
 class TopicItem {
   final String id;
+  final String chapterId;
   final String name;
+
   final int totalVideos;
   final List<Video> videos;
+
   final String? thumbnailUrl;
   final String? duration;
   final String? educator;
 
   TopicItem({
     required this.id,
+    required this.chapterId,
     required this.name,
     this.totalVideos = 0,
     this.videos = const [],
@@ -236,11 +240,12 @@ class TopicItem {
     }
 
     return TopicItem(
-      id: json['_id'] ?? json['id'] ?? '',
-      name: json['name'] ?? json['title'] ?? '',
-      totalVideos: json['totalVideos'] ?? json['videos']?.length ?? 0,
+      id: json['_id'] ?? '',
+      chapterId: json['chapterId'] ?? '',
+      name: json['name'] ?? '',
+      totalVideos: json['totalVideos'] ?? parsedVideos.length,
       videos: parsedVideos,
-      thumbnailUrl: json['thumbnail'] ?? json['thumbnailUrl'],
+      thumbnailUrl: json['thumbnailUrl'],
       duration: json['duration'],
       educator: json['educator'],
     );
@@ -248,9 +253,14 @@ class TopicItem {
 
   Map<String, dynamic> toJson() {
     return {
+      '_id': id,
+      'chapterId': chapterId,
       'name': name,
       'totalVideos': totalVideos,
       'videos': videos.map((v) => v.toJson()).toList(),
+      'thumbnailUrl': thumbnailUrl,
+      'duration': duration,
+      'educator': educator,
     };
   }
 }

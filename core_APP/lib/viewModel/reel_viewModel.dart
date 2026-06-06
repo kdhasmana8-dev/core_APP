@@ -9,61 +9,30 @@ class ReelsEarnViewModel extends ChangeNotifier {
   int currentIndex = 0;
   List<ReelEarnModel> reels = [];
 
-  final String baseUrl = 'https://core-backend-38rr.onrender.com/api/reel-model';
-  final String authBaseUrl = 'https://core-backend-38rr.onrender.com'; // Auth server
+  final String baseUrl =
+      'https://core-backend-38rr.onrender.com/api/reels';
 
+  final String authBaseUrl =
+      'https://core-backend-38rr.onrender.com';
+
+  final String engagementBase =
+      'https://core-backend-38rr.onrender.com/api/reel-engagement';
+
+  // ================= TOKEN =================
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("user_token");
-    print("🔐 TOKEN => ${token != null ? "Present" : "NULL"}");
-    return token;
+    return prefs.getString("user_token");
   }
 
-  Future<void> loadReels() async {
-    print("=== LOAD FOR YOU REELS ===");
-    await _fetchReels();
-  }
+  // ================= LOAD REELS =================
+  Future<void> loadReels() async => _fetchReels();
+  Future<void> loadStudyReels() async => _fetchReels(type: 'Study');
+  Future<void> loadPYQReels() async => _fetchReels(type: 'PYQ');
 
-  Future<void> loadStudyReels() async {
-    print("=== LOAD STUDY REELS ===");
-    await _fetchReels(type: 'Study');
-  }
-
-  Future<void> loadPYQReels() async {
-    print("=== LOAD PYQ REELS ===");
-    await _fetchReels(type: 'PYQ');
-  }
-
+  // ================= FILTERS =================
   Map<String, List<String>> filters = {};
 
-  Future<void> loadFilters() async {
-    try {
-      final token = await _getToken();
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/filters'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        filters = {
-          "Exam": List<String>.from(data["exams"] ?? []),
-          "Subject": List<String>.from(data["subjects"] ?? []),
-          "Chapter": List<String>.from(data["chapters"] ?? []),
-          "Topic": List<String>.from(data["topics"] ?? []),
-          "Teacher": List<String>.from(data["teachers"] ?? []),
-        };
-
-        notifyListeners();
-      }
-    } catch (e) {
-      print("Filter Error => $e");
-    }
-  }
+  // ================= FETCH REELS =================
   Future<void> _fetchReels({String? type}) async {
     loading = true;
     notifyListeners();
@@ -76,9 +45,7 @@ class ReelsEarnViewModel extends ChangeNotifier {
         url = '$baseUrl?type=$type';
       }
 
-      print("📡 API URL: $url");
-
-      final response = await http.get(
+      final res = await http.get(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
@@ -86,320 +53,376 @@ class ReelsEarnViewModel extends ChangeNotifier {
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
 
-        if (data['success'] == true && data['result'] != null) {
-          final List<dynamic> resultList = data['result'];
+        if (data['success'] == true && data['reels'] != null) {
+          final List list = data['reels'];
 
-          reels = resultList.map((item) {
-            return ReelEarnModel(
-              videoId: item['_id']?.toString() ?? '',
-              videoUrl: item['videoUrl'] ?? '',
+          final temp = <ReelEarnModel>[];
+
+          for (var item in list) {
+            final teacher = item['teacher_id'] ?? {};
+            final stats = item['stats'] ?? {};
+
+            final videoUrl =
+            (item['video_url'] ?? '').toString().trim().isNotEmpty
+                ? item['video_url']
+                : (item['hls_master_url'] ?? '').toString().trim();
+
+            if (videoUrl.toString().isEmpty) continue;
+            debugPrint(
+                "REEL=${item['_id']} "
+                    "LIKED=${item['isLiked']} "
+                    "SAVED=${item['isSaved']}"
+            );
+            temp.add(ReelEarnModel(
+              reelId: item['_id'] ?? '',
+              videoUrl: videoUrl,
+              thumbnail: item['thumbnail_url'] ?? '',
               title: item['title'] ?? '',
               description: item['description'] ?? '',
-              thumbnail: item['thumbnail'] ?? '',
-              likes: item['likes'] ?? 0,
+              likes: stats['likes'] ?? item['total_likes'] ?? 0,
+              type: item['is_pyq'] == true ? "PYQ" : "Study",
+              teacherName: teacher['teacherName'] ?? '',
+              teacherUsername: teacher['email'] ?? '',
+              teacherProfile: teacher['profile_image'] ?? '',
+              tags: List<String>.from(item['tags'] ?? []),
               isLiked: item['isLiked'] ?? false,
               isSaved: item['isSaved'] ?? false,
-              type: item['type'] ?? '',
-              teacherName: item['teacherName'] ?? '',
-              teacherUsername: item['teacherUsername'] ?? '',
-              teacherProfile: item['teacherProfile'] ?? '',
-              tags: item['tags'] != null ? List<String>.from(item['tags']) : [],
-            );
-          }).toList();
+            ));
+          }
 
-          print("🎉 Reels loaded: ${reels.length}");
+          reels = temp;
         } else {
-          _loadFallbackReels(type: type);
+          _fallback();
         }
       } else {
-        _loadFallbackReels(type: type);
+        _fallback();
       }
     } catch (e) {
-      print("🔥 Error: $e");
-      _loadFallbackReels(type: type);
+      debugPrint("ERROR => $e");
+      _fallback();
     }
 
     loading = false;
     notifyListeners();
   }
 
-  void _loadFallbackReels({String? type}) {
-    if (type == 'Study') {
-      reels = [
-        ReelEarnModel(
-          videoId: "fallback_study_1",
-          videoUrl: "https://vz-fd5fa6c8-ece.b-cdn.net/9280db5a-f3ca-4255-a8da-b7b2b4bc0764/playlist.m3u8",
-          title: "Study Tips & Tricks",
-          description: "Learn how to study effectively.",
-          likes: 3200,
-          type: "Study",
-          tags: ["study", "tips"],
-        ),
-      ];
-    } else if (type == 'PYQ') {
-      reels = [
-        ReelEarnModel(
-          videoId: "fallback_pyq_1",
-          videoUrl: "https://vz-fd5fa6c8-ece.b-cdn.net/ec98e638-572b-4629-9bf8-db2302ae64f3/playlist.m3u8",
-          title: "JEE Previous Year Questions",
-          description: "Important PYQ solutions.",
-          likes: 1420,
-          type: "PYQ",
-          tags: ["pyq", "jee"],
-        ),
-      ];
-    } else {
-      reels = [
-        ReelEarnModel(
-          videoId: "fallback_1",
-          videoUrl: "https://vz-fd5fa6c8-ece.b-cdn.net/39f61af3-3e12-4687-86e2-d10c16ede091/playlist.m3u8",
-          title: "Physics Kinematics",
-          description: "Learn Kinematics basics.",
-          likes: 12400,
-          tags: ["physics", "jee"],
-        ),
-      ];
-    }
+  void _fallback() {
+    reels = [
+      ReelEarnModel(
+        reelId: "fallback",
+        videoUrl:
+        "https://vz-fd5fa6c8-ece.b-cdn.net/39f61af3-3e12-4687-86e2-d10c16ede091/playlist.m3u8",
+        title: "Physics Kinematics",
+        description: "Learn basics",
+        likes: 1200,
+        type: "Study",
+        tags: ["physics"],
+      ),
+    ];
   }
 
-  // ================= SAVE REEL - MULTIPLE ENDPOINTS TRY =================
-
+  // ================= SAVE REEL =================
   Future<void> saveReel(int index) async {
-    if (index < 0 || index >= reels.length) return;
+    final reel = reels[index];
 
-    final oldSaved = reels[index].isSaved;
+    final oldSaved = reel.isSaved;
 
-    // Optimistic update
-    reels[index] = reels[index].copyWith(
-      isSaved: !reels[index].isSaved,
-    );
+    reels[index] = reel.copyWith(isSaved: !oldSaved);
     notifyListeners();
 
-    // Try multiple endpoints
-    bool success = false;
-
-    // Try endpoint 1
-    success = await _trySaveEndpoint1(reels[index].videoId);
-
-    // If failed, try endpoint 2
-    if (!success) {
-      print("🔄 Trying endpoint 2...");
-      success = await _trySaveEndpoint2(reels[index].videoId);
-    }
-
-    // If failed, try endpoint 3
-    if (!success) {
-      print("🔄 Trying endpoint 3...");
-      success = await _trySaveEndpoint3(reels[index].videoId);
-    }
-
-    // If failed, try endpoint 4
-    if (!success) {
-      print("🔄 Trying endpoint 4...");
-      success = await _trySaveEndpoint4(reels[index].videoId);
-    }
-
-    if (!success) {
-      // Revert on failure
-      reels[index] = reels[index].copyWith(isSaved: oldSaved);
-      notifyListeners();
-      print("❌ All save endpoints failed - reverted");
-    } else {
-      print("✅ Save successful!");
-    }
-  }
-
-  // Endpoint 1: /api/reel-model/save
-  Future<bool> _trySaveEndpoint1(String videoId) async {
     try {
       final token = await _getToken();
-      if (token == null) return false;
 
-      final url = '$authBaseUrl/api/save-reels/save';
-      print("📡 Trying: POST $url");
-
-      final response = await http.post(
-        Uri.parse(url),
+      final res = await http.post(
+        Uri.parse('$authBaseUrl/api/save-reels/save'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'reelId': videoId}),
+        body: jsonEncode({"reelId": reel.reelId}),
       );
 
-      print("Status: ${response.statusCode}");
-      return response.statusCode == 200 || response.statusCode == 201;
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        reels[index] = reel.copyWith(
+          isSaved: data['isSaved'] ?? !oldSaved,
+        );
+        notifyListeners();
+      } else {
+        throw Exception("failed");
+      }
     } catch (e) {
-      print("Error: $e");
-      return false;
-    }
-  }
-
-  // Endpoint 2: /api/save-reel
-  Future<bool> _trySaveEndpoint2(String videoId) async {
-    try {
-      final token = await _getToken();
-      if (token == null) return false;
-
-      final url = 'https://core-backend-38rr.onrender.com/api/save-reels/save';
-      print("📡 Trying: POST $url");
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'reelId': videoId}),
-      );
-
-      print("Status: ${response.statusCode}");
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print("Error: $e");
-      return false;
-    }
-  }
-
-  // Endpoint 3: /api/reels/save
-  Future<bool> _trySaveEndpoint3(String videoId) async {
-    try {
-      final token = await _getToken();
-      if (token == null) return false;
-
-      final url = 'https://core-backend-38rr.onrender.com/api/save-reels/save';
-      print("📡 Trying: POST $url");
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'reelId': videoId}),
-      );
-
-      print("Status: ${response.statusCode}");
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print("Error: $e");
-      return false;
-    }
-  }
-
-  // Endpoint 4: /api/bookmark
-  Future<bool> _trySaveEndpoint4(String videoId) async {
-    try {
-      final token = await _getToken();
-      if (token == null) return false;
-
-      final url = 'https://core-backend-38rr.onrender.com/api/save-reels/save';
-      print("📡 Trying: POST $url");
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'reelId': videoId}),
-      );
-
-      print("Status: ${response.statusCode}");
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print("Error: $e");
-      return false;
-    }
-  }
-
-  // ================= LIKE API =================
-
-  void like(int index) async {
-    if (index < 0 || index >= reels.length) return;
-
-    final oldLiked = reels[index].isLiked;
-    final oldLikes = reels[index].likes;
-
-    reels[index] = reels[index].copyWith(
-      isLiked: !reels[index].isLiked,
-      likes: reels[index].isLiked ? reels[index].likes - 1 : reels[index]
-          .likes + 1,
-    );
-    notifyListeners();
-
-    final success = await _sendLikeToApi(
-        reels[index].videoId, reels[index].isLiked);
-
-    if (!success) {
-      reels[index] = reels[index].copyWith(isLiked: oldLiked, likes: oldLikes);
+      reels[index] = reel.copyWith(isSaved: oldSaved);
       notifyListeners();
     }
   }
+  // ================= LIKE =================
+  Future<void> like(int index) async {
+    final reel = reels[index];
 
-  Future<bool> _sendLikeToApi(String videoId, bool isLiked) async {
+    final oldLiked = reel.isLiked;
+    final oldLikes = reel.likes;
+
+    // Optimistic UI update
+    reels[index] = reel.copyWith(
+      isLiked: true,
+      likes: oldLiked ? oldLikes : oldLikes + 1,
+    );
+    notifyListeners();
+
     try {
       final token = await _getToken();
-      if (token == null) return false;
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/like'),
+      final res = await http.post(
+        Uri.parse('$engagementBase/like/${reel.reelId}'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'videoId': videoId, 'liked': isLiked}),
       );
 
-      return response.statusCode == 200;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body);
+
+        reels[index] = reels[index].copyWith(
+          isLiked: true,
+          likes: data['totalLikes'] ?? reels[index].likes,
+        );
+
+        notifyListeners();
+      } else {
+        throw Exception("Like failed");
+      }
     } catch (e) {
-      print("🔥 LIKE ERROR => $e");
-      return false;
+      // Rollback
+      reels[index] = reel.copyWith(
+        isLiked: oldLiked,
+        likes: oldLikes,
+      );
+      notifyListeners();
+
+      debugPrint("Like Error: $e");
     }
   }
 
+// ================= UNLIKE =================
+  Future<void> unlike(int index) async {
+    final reel = reels[index];
+
+    final oldLiked = reel.isLiked;
+    final oldLikes = reel.likes;
+
+    // Optimistic UI update
+    reels[index] = reel.copyWith(
+      isLiked: false,
+      likes: oldLiked && oldLikes > 0
+          ? oldLikes - 1
+          : oldLikes,
+    );
+
+    notifyListeners();
+
+    try {
+      final token = await _getToken();
+
+      final res = await http.delete(
+        Uri.parse('$engagementBase/unlike/${reel.reelId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        Map<String, dynamic>? data;
+
+        if (res.body.isNotEmpty) {
+          data = jsonDecode(res.body);
+        }
+
+        reels[index] = reels[index].copyWith(
+          isLiked: false,
+          likes: data?['totalLikes'] ?? reels[index].likes,
+        );
+
+        notifyListeners();
+      } else {
+        throw Exception("Unlike failed");
+      }
+    } catch (e) {
+      // Rollback
+      reels[index] = reel.copyWith(
+        isLiked: oldLiked,
+        likes: oldLikes,
+      );
+
+      notifyListeners();
+
+      debugPrint("Unlike Error: $e");
+    }
+  }
+
+// ================= SHARE =================
+  Future<void> shareReel(String videoId) async {
+    await _post(
+      '$engagementBase/share/$videoId',
+      {},
+    );
+  }
+  // ================= VIEW =================
+  Future<void> viewReel(String videoId) async {
+    await _post(
+      '$engagementBase/view/$videoId',
+      {},
+    );
+  }
+// ================= DOWNLOAD =================
+  // ================= DOWNLOAD =================
+  Future<String?> downloadReel(String reelId) async {
+    try {
+      final token = await _getToken();
+
+      final res = await http.post(
+        Uri.parse('$engagementBase/download/$reelId'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint("DOWNLOAD STATUS => ${res.statusCode}");
+      debugPrint("DOWNLOAD BODY => ${res.body}");
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body);
+
+        return data["download_url"];
+      }
+    } catch (e) {
+      debugPrint("DOWNLOAD ERROR => $e");
+    }
+
+    return null;
+  }
+  // ================= CONTINUE WATCHING =================
   Future<void> saveContinueWatching({
     required String videoId,
     required int watchedSeconds,
     required int durationSeconds,
   }) async {
+    await _post(
+      'http://192.168.1.8:5000/api/continue-watching/save',
+      {
+        "videoId": videoId,
+        "watchedSeconds": watchedSeconds,
+        "durationSeconds": durationSeconds,
+      },
+    );
+  }
+
+  // ================= GENERIC POST =================
+  Future<bool> _post(String url, Map body) async {
     try {
       final token = await _getToken();
 
-      if (token == null) {
-        print("❌ Token not found");
-        return;
-      }
+      final res = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
 
-      final response = await http.post(
+      print("POST URL => $url");
+      print("POST STATUS => ${res.statusCode}");
+      print("POST BODY => ${res.body}");
+
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      print("POST ERROR => $e");
+      return false;
+    }
+  }
+  Future<List<Map<String, dynamic>>> fetchComments(
+      String videoId,
+      ) async {
+    try {
+      final token = await _getToken();
+
+      final res = await http.get(
         Uri.parse(
-          'http://192.168.1.8:5000/api/continue-watching/save',
+          '$engagementBase/comments/$videoId',
         ),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          if (token != null)
+            'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        return List<Map<String, dynamic>>.from(
+          (data["comments"] ?? []).map(
+                (item) => {
+              "id": item["_id"],
+              "userName":
+              item["user_id"]?["name"] ??
+                  "Anonymous User",
+              "comment":
+              item["comment_text"] ?? "",
+              "createdAt":
+              item["createdAt"] ?? "",
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("COMMENT ERROR => $e");
+    }
+
+    return [];
+  }
+  Future<bool> commentReel(
+      String videoId,
+      String comment,
+      ) async {
+    try {
+      final token = await _getToken();
+
+      final res = await http.post(
+        Uri.parse(
+          '$engagementBase/comment/$videoId',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null)
+            'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          "videoId": videoId,
-          "watchedSeconds": watchedSeconds,
-          "durationSeconds": durationSeconds,
+          "comment_text": comment,
         }),
       );
 
-      print("📺 Continue Watching Status => ${response.statusCode}");
-      print("📺 Continue Watching Response => ${response.body}");
+      debugPrint("STATUS => ${res.statusCode}");
+      debugPrint("BODY => ${res.body}");
+
+      return res.statusCode == 200 ||
+          res.statusCode == 201;
     } catch (e) {
-      print("🔥 Continue Watching Error => $e");
+      debugPrint("COMMENT POST ERROR => $e");
+      return false;
     }
   }
-
   void changePage(int index) {
-    if (index >= 0 && index < reels.length) {
-      currentIndex = index;
-      notifyListeners();
-    }
+    currentIndex = index;
+    notifyListeners();
   }
 }
+

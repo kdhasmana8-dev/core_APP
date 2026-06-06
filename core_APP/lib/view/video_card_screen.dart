@@ -6,24 +6,48 @@ import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../utils/app_colors.dart';
 
-class VideoData {
+class TopVideoModel {
   final String id;
   final String title;
-  final String subjectName;
+  final String description;
   final String videoUrl;
+  final String thumbnailUrl;
+  final int duration;
+  final String teacherName;
+  final String topicName;
+  final int likes;
+  final int views;
 
-  VideoData({required this.id, required this.title, required this.subjectName, required this.videoUrl});
+  TopVideoModel({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.videoUrl,
+    required this.thumbnailUrl,
+    required this.duration,
+    required this.teacherName,
+    required this.topicName,
+    required this.likes,
+    required this.views,
+  });
 
-  factory VideoData.fromJson(Map<String, dynamic> json) {
-    return VideoData(
-      id: json['_id'],
-      title: json['title'],
-      subjectName: json['subject']['name'],
-      videoUrl: json['videoUrl'],
+  factory TopVideoModel.fromJson(Map<String, dynamic> json) {
+    return TopVideoModel(
+      id: json['_id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      videoUrl: json['video_url'] ?? '',
+      thumbnailUrl: json['thumbnail_url'] ?? '',
+      duration: json['duration'] ?? 0,
+
+      teacherName: json['teacher_id']?['teacherName'] ?? '',
+      topicName: json['topic_id']?['name'] ?? '',
+
+      likes: json['stats']?['likes'] ?? 0,
+      views: json['stats']?['views'] ?? 0,
     );
   }
 }
-
 //Top Videos Section-----------------
 
 class TopVideosSection extends StatefulWidget {
@@ -34,26 +58,38 @@ class TopVideosSection extends StatefulWidget {
 }
 
 class _TopVideosSectionState extends State<TopVideosSection> {
-  final PageController _pageController = PageController(viewportFraction: 0.9);
-  List<VideoData> _videos = [];
+  final PageController _pageController =
+  PageController(viewportFraction: 0.9);
+
+  List<TopVideoModel> _videos = [];
   bool _isLoading = true;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _fetchVideos();
+    fetchTopVideos();
   }
 
-  Future<void> _fetchVideos() async {
+  Future<void> fetchTopVideos() async {
     try {
-      final response = await http.get(Uri.parse('https://core-backend-38rr.onrender.com/api/top-videos'));
+      final response = await http.get(
+        Uri.parse(
+            'https://core-backend-38rr.onrender.com/api/reels/top/videos'),
+      );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+
+        final List list = data['reels'] ?? [];
+
         setState(() {
-          _videos = (data['videos'] as List).map((i) => VideoData.fromJson(i)).toList();
+          _videos =
+              list.map((e) => TopVideoModel.fromJson(e)).toList();
           _isLoading = false;
         });
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -62,78 +98,116 @@ class _TopVideosSectionState extends State<TopVideosSection> {
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading
-        ? const SizedBox(height: 450, child: Center(child: CircularProgressIndicator(color: AppColors.primaryOrange)))
-        : Column(
+    if (_isLoading) {
+      return const SizedBox(
+        height: 450,
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_videos.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: Text("No videos found")),
+      );
+    }
+
+    return Column(
       children: [
         SizedBox(
           height: 450,
           child: PageView.builder(
             controller: _pageController,
             itemCount: _videos.length,
-            onPageChanged: (index) => setState(() => _currentPage = index),
+            onPageChanged: (index) =>
+                setState(() => _currentPage = index),
             itemBuilder: (context, index) {
               final video = _videos[index];
-              return AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, child) {
-                  double scale = 1;
-                  if (_pageController.hasClients) {
-                    scale = (_pageController.page ?? 0) - index;
-                    scale = (1 - (scale.abs() * .12)).clamp(.92, 1.0);
-                  }
-                  return Transform.scale(scale: scale, child: child);
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.borderStroke),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        VideoCard(key: ValueKey(video.id), videoUrl: video.videoUrl),
-                        Positioned(
-                          left: 18, right: 18, bottom: 24,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(video.title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 6),
-                              Text(video.subjectName, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                            ],
-                          ),
+
+              return Container(
+                margin:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.borderStroke),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      VideoCard(videoUrl: video.videoUrl),
+
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 20,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              video.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              video.topicName,
+                              style: const TextStyle(
+                                  color: Colors.white70),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "👨‍🏫 ${video.teacherName}",
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "❤️ ${video.likes}   👁 ${video.views}",
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 12),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               );
             },
           ),
         ),
+
         const SizedBox(height: 10),
+
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_videos.length, (index) => AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: _currentPage == index ? 18 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: _currentPage == index ? AppColors.primaryOrange : Colors.white24,
-              borderRadius: BorderRadius.circular(20),
+          children: List.generate(
+            _videos.length,
+                (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: _currentPage == index ? 18 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _currentPage == index
+                    ? AppColors.primaryOrange
+                    : Colors.white24,
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-          )),
+          ),
         ),
       ],
     );
   }
 }
-
 
 class VideoCard extends StatefulWidget {
   final String videoUrl;

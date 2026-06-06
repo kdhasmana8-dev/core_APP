@@ -1,60 +1,68 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
 import '../model/test_model.dart';
 
-class TestViewModel extends ChangeNotifier {
-  List<TestModel> _tests = [];
+
+
+class AssessmentViewModel extends ChangeNotifier {
+  List<AssessmentModel> _assessments = [];
   bool _isLoading = false;
 
-  List<TestModel> get tests => _tests;
+  List<AssessmentModel> get assessments => _assessments;
   bool get isLoading => _isLoading;
 
-  // Constructor call karte hi data load ho jaye
-  TestViewModel() {
-    fetchTests();
+  AssessmentViewModel() {
+    fetchAssessments();
   }
 
-  // API Fetch Logic
-  Future<void> fetchTests() async {
+  Future<void> fetchAssessments() async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final response = await http.get(
-        Uri.parse('https://core-backend-38rr.onrender.com/api/tests/all'),
+        Uri.parse(
+          'https://core-backend-38rr.onrender.com/api/assessments',
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
 
-        // Response check: success true hona chahiye
-        if (data['success'] == true && data['tests'] != null) {
-          List<dynamic> testsJson = data['tests'];
+        if (data['success'] == true) {
+          final List<dynamic> list =
+              data['assessments'] ?? [];
 
-          // JSON ko Model mein convert karein
-          // (TestModel.fromJson ab updated structure handle karega)
-          _tests = testsJson.map((json) => TestModel.fromJson(json)).toList();
+          _assessments = list
+              .map(
+                (e) => AssessmentModel.fromJson(e),
+          )
+              .toList();
+
+          debugPrint(
+            "Assessments Loaded = ${_assessments.length}",
+          );
         }
-      } else {
-        debugPrint("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("Exception in fetchTests: $e");
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      debugPrint("Assessment Error: $e");
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  // UI ke filter tabs ke liye dynamic categories nikalna
   List<String> get availableCategories {
-    // "All" pehle hona chahiye
-    Set<String> categories = {"All"};
+    final Set<String> categories = {"All"};
 
-    // API se aayi category names ko add karein
-    for (var test in _tests) {
-      categories.add(test.category);
+    for (var assessment in _assessments) {
+      categories.add(
+        assessment.subjectName.isEmpty
+            ? "General"
+            : assessment.subjectName,
+      );
     }
 
     return categories.toList();

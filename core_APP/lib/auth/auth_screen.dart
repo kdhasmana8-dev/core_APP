@@ -107,41 +107,28 @@ class _OttAuthScreenState
         isExamLoading = true;
       });
 
-      debugPrint(
-        "========== GET ALL EXAMS ==========",
-      );
+      final url = "$baseUrl/api/exams";
 
-      final response = await http.get(
-        Uri.parse(
-          "$baseUrl/api/exams/all",
-        ),
-      );
+      debugPrint("GET EXAMS URL: $url");
 
-      debugPrint(
-        "STATUS CODE : ${response.statusCode}",
-      );
+      final response = await http.get(Uri.parse(url));
 
-      debugPrint(
-        "BODY : ${response.body}",
-      );
+      debugPrint("STATUS CODE: ${response.statusCode}");
+      debugPrint("BODY: ${response.body}");
 
-      final data =
-      jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200 &&
-          data["success"] == true) {
+      if (response.statusCode == 200 && data["success"] == true) {
         setState(() {
-          exams = data["exams"];
+          exams = List<Map<String, dynamic>>.from(data["exams"]);
         });
 
-        debugPrint(
-          "TOTAL EXAMS : ${exams.length}",
-        );
+        debugPrint("EXAMS LOADED: ${exams.length}");
+      } else {
+        debugPrint("API FAILED OR SUCCESS FALSE");
       }
     } catch (e) {
-      debugPrint(
-        "GET EXAMS ERROR : $e",
-      );
+      debugPrint("GET EXAMS ERROR: $e");
     } finally {
       setState(() {
         isExamLoading = false;

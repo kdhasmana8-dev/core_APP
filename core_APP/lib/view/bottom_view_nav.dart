@@ -20,7 +20,7 @@ class _MainShellDashboardState extends State<MainShellDashboard> {
   Widget build(BuildContext context) {
     final bool isReelsActive = _currentIndex == 2;
     final screens = [
-      const HomeScreen(),
+      const HomeScreen(examId: '', TestId: '',),
       const CourseListView(),
       ReelsEarnScreen(isVisible: isReelsActive),
       const TestScreen(),

@@ -1,9 +1,11 @@
-import 'package:core_app/view/test_details_screen.dart';
+import 'package:core_app/view/test_exam_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../utils/app_colors.dart';
-import '../viewModel/test_viewModel.dart';
+
 import '../model/test_model.dart';
+import '../viewModel/test_viewModel.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -17,7 +19,10 @@ class _TestScreenState extends State<TestScreen> {
 
   BoxDecoration get _orangeGradientDecoration => BoxDecoration(
     gradient: LinearGradient(
-      colors: [AppColors.primaryOrange.withOpacity(0.8), AppColors.primaryOrange],
+      colors: [
+        AppColors.primaryOrange.withOpacity(0.8),
+        AppColors.primaryOrange
+      ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -27,16 +32,24 @@ class _TestScreenState extends State<TestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Consumer<TestViewModel>(
+      body: Consumer<AssessmentViewModel>(
         builder: (context, viewModel, child) {
           if (viewModel.isLoading) {
-            return Center(child: CircularProgressIndicator(color: AppColors.primaryOrange));
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.orange),
+            );
           }
 
-          final filters = ["All", ...viewModel.tests.map((e) => e.category).toSet()];
+          final filters = [
+            "All",
+            ...viewModel.assessments.map((e) => e.subjectName).toSet()
+          ];
+
           final displayTests = _selectedCategory == "All"
-              ? viewModel.tests
-              : viewModel.tests.where((t) => t.category == _selectedCategory).toList();
+              ? viewModel.assessments
+              : viewModel.assessments
+              .where((t) => t.subjectName == _selectedCategory)
+              .toList();
 
           return CustomScrollView(
             slivers: [
@@ -44,52 +57,74 @@ class _TestScreenState extends State<TestScreen> {
                 expandedHeight: 90,
                 pinned: true,
                 backgroundColor: Colors.black,
-                flexibleSpace: FlexibleSpaceBar(
+                flexibleSpace: const FlexibleSpaceBar(
                   centerTitle: true,
-                  title: const Text("Mock Tests", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [AppColors.primaryOrange.withOpacity(0.3), Colors.black.withOpacity(0.0)],
-                      ),
-                    ),
+                  title: Text(
+                    "Mock Tests",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
               ),
+
+              /// FILTERS
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: 60,
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     scrollDirection: Axis.horizontal,
                     itemCount: filters.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
                       final filter = filters[index];
                       final isSelected = _selectedCategory == filter;
+
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedCategory = filter),
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = filter;
+                          });
+                        },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 8),
                           decoration: isSelected
-                              ? _orangeGradientDecoration.copyWith(borderRadius: BorderRadius.circular(20))
-                              : BoxDecoration(color: AppColors.cardSurface, borderRadius: BorderRadius.circular(20)),
-                          alignment: Alignment.center,
-                          child: Text(filter, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.bold)),
+                              ? _orangeGradientDecoration.copyWith(
+                            borderRadius: BorderRadius.circular(20),
+                          )
+                              : BoxDecoration(
+                            color: AppColors.cardSurface,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Center(
+                            child: Text(
+                              filter,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.white70,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
               ),
+
+              /// LIST
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildTestCard(displayTests[index]),
+                      (context, index) =>
+                      _buildTestCard(displayTests[index]),
                   childCount: displayTests.length,
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: 30)),
             ],
           );
@@ -98,10 +133,12 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
-  Widget _buildTestCard(TestModel test) {
-    bool hasValidImage = test.imagePath.isNotEmpty &&
-        test.imagePath != "null" &&
-        test.imagePath.startsWith("http");
+  /// CARD UI
+  Widget _buildTestCard(AssessmentModel test) {
+    final image = test.thumbnailUrl;
+
+    final hasValidImage =
+        image.isNotEmpty && image.startsWith("http");
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -113,62 +150,79 @@ class _TestScreenState extends State<TestScreen> {
       child: Column(
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(16)),
             child: SizedBox(
-              height: 100,
+              height: 120,
               width: double.infinity,
               child: hasValidImage
                   ? Image.network(
-                test.imagePath,
+                image,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _dummyImageWidget(),
+                errorBuilder: (_, __, ___) =>
+                    _dummyImageWidget(),
               )
                   : _dummyImageWidget(),
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(test.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  test.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
                 const SizedBox(height: 10),
+
                 Row(
                   children: [
-                    _infoChip("${test.questions} Qs", Icons.help_outline_rounded),
+                    _infoChip(
+                      "${test.totalQuestions} Qs",
+                      Icons.help_outline,
+                    ),
                     const SizedBox(width: 8),
-                    _infoChip("${test.duration} Mins", Icons.timer_rounded),
+                    _infoChip(
+                      "${test.duration} Min",
+                      Icons.timer,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
+
+                const SizedBox(height: 12),
+
                 Container(
-                  decoration: _orangeGradientDecoration.copyWith(borderRadius: BorderRadius.circular(12)),
+                  width: double.infinity,
+                  decoration: _orangeGradientDecoration.copyWith(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TestInstructionsScreen(
-                            testId: test.id,
-                            testTitle: test.title,
-                            duration: test.duration,
-                            questionsCount: test.questions,
-                            instructions: test.instructions,
-                          ),
-                        ),
-                      );
-                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      minimumSize: const Size(double.infinity, 40),
                     ),
-                    child: const Text("START TEST", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => TestExamScreen(testId: test.id,)));
+                    },
+                    child: const Text(
+                      "START TEST",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                )
               ],
             ),
-          ),
+          )
         ],
       ),
     );
@@ -178,20 +232,31 @@ class _TestScreenState extends State<TestScreen> {
     return Container(
       color: Colors.grey[900],
       child: const Center(
-        child: Icon(Icons.quiz_rounded, size: 50, color: Colors.white),
+        child: Icon(Icons.quiz, color: Colors.white, size: 50),
       ),
     );
   }
 
-  Widget _infoChip(String label, IconData icon) {
+  Widget _infoChip(String text, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(6)),
-      child: Row(children: [
-        Icon(icon, size: 12, color: AppColors.primaryOrange),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.orange),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+            ),
+          )
+        ],
+      ),
     );
   }
 }

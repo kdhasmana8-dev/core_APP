@@ -1,6 +1,6 @@
 class ReelEarnModel {
   final String videoUrl;
-  final String videoId;
+  final String reelId;
   final String title;
   final String description;
   final String thumbnail;
@@ -15,7 +15,7 @@ class ReelEarnModel {
 
   ReelEarnModel({
     required this.videoUrl,
-    required this.videoId,
+    required this.reelId,
     this.title = '',
     this.description = '',
     this.thumbnail = '',
@@ -46,7 +46,7 @@ class ReelEarnModel {
   }) {
     return ReelEarnModel(
       videoUrl: videoUrl ?? this.videoUrl,
-      videoId: videoId ?? this.videoId,
+      reelId: videoId ?? this.reelId,
       title: title ?? this.title,
       description: description ?? this.description,
       thumbnail: thumbnail ?? this.thumbnail,

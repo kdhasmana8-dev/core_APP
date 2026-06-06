@@ -20,80 +20,83 @@ class SubjectDetailsScreen extends StatelessWidget {
   });
 
   List<Map<String, dynamic>> getTopics() {
-    if (topic != null) {
-      return [
-        {
-          "title": topic!.name,
-          "duration": topic!.duration ?? "${topic!.totalVideos * 10} min",
-          "locked": false,
-          "totalVideos": topic!.totalVideos,
-          "thumbnail": topic!.thumbnailUrl ?? "",
-          "description": "Learn ${topic!.name} with detailed explanations",
-          "videos": topic!.videos,
-        }
-      ];
+    if (subjectItem == null) {
+      debugPrint("subjectItem NULL");
+      return [];
     }
 
-    if (subjectItem != null) {
-      if (subjectItem!.chapters.isNotEmpty) {
-        List<Map<String, dynamic>> chapterTopics = [];
-        for (var chapter in subjectItem!.chapters) {
-          chapterTopics.add({
-            "title": chapter.name,
-            "duration": _calculateChapterDuration(chapter),
-            "locked": false,
-            "totalVideos": chapter.topics.fold(0, (sum, t) => sum + t.totalVideos),
-            "thumbnail": subjectItem!.image,
-            "description": "Master ${chapter.name} with detailed video lectures",
-            "chapters": chapter,
-            "topics": chapter.topics,
-          });
-        }
-        return chapterTopics;
-      }
+    debugPrint("========== SUBJECT DATA ==========");
+    debugPrint("Subject: ${subjectItem!.name}");
+    debugPrint("Total Videos: ${subjectItem!.totalVideos}");
+    debugPrint("Chapters: ${subjectItem!.chapters.length}");
+    debugPrint("Topics: ${subjectItem!.topics.length}");
 
-      // Agar chapters nahi hain to subject ko hi ek topic bana do
-      return [
-        {
-          "title": subjectItem!.name,
-          "duration": "${subjectItem!.totalVideos * 10} min",
-          "locked": false,
-          "totalVideos": subjectItem!.totalVideos,
-          "thumbnail": subjectItem!.image,
-          "description": subjectItem!.description,
-        }
-      ];
+    for (var chapter in subjectItem!.chapters) {
+      debugPrint(
+        "Chapter => ${chapter.name} (${chapter.id})",
+      );
     }
 
+    for (var topic in subjectItem!.topics) {
+      debugPrint(
+        "Topic => ${topic.name} | chapterId=${topic.chapterId} | videos=${topic.totalVideos}",
+      );
+    }
+    debugPrint("=================================");
 
-    if (subjectSection != null && subjectSection!.subjects.isNotEmpty) {
-      return subjectSection!.subjects.map((subject) {
-        return {
-          "title": subject.name,
-          "duration": "${subject.totalVideos * 10} min",
-          "locked": false,
-          "totalVideos": subject.totalVideos,
-          "thumbnail": subject.image,
-          "description": subject.description,
-          "subjectId": subject.id,
-          "subject": subject,
-        };
-      }).toList();
+    List<Map<String, dynamic>> chapterTopics = [];
+
+    for (var chapter in subjectItem!.chapters) {
+      debugPrint("Chapter Id: ${chapter.id}");
+      debugPrint("Chapter Name: ${chapter.name}");
+
+      final chapterTopicsList = subjectItem!.topics
+          .where(
+            (topic) =>
+        topic.chapterId.toString().trim() ==
+            chapter.id.toString().trim(),
+      )
+          .toList();
+
+      debugPrint(
+        "Found Topics For ${chapter.name}: ${chapterTopicsList.length}",
+      );
+
+      chapterTopics.add({
+        "title": chapter.name,
+        "duration": "${chapterTopicsList.length * 10} min",
+        "locked": false,
+        "totalVideos": subjectItem!.totalVideos,
+        "thumbnail": subjectItem!.image,
+        "description": "${chapterTopicsList.length} Topics Available",
+        "topics": chapterTopicsList,
+      });
     }
 
-    return [];
+    return chapterTopics;
   }
-
-  String _calculateChapterDuration(Chapter chapter) {
+  String _calculateChapterDuration(
+      List<TopicItem> topics,
+      ) {
     int totalMinutes = 0;
-    for (var topic in chapter.topics) {
-      if (topic.duration != null) {
-        int minutes = int.tryParse(topic.duration!.split(' ')[0]) ?? 10;
+
+    for (var topic in topics) {
+      if (topic.duration != null &&
+          topic.duration!.isNotEmpty) {
+        final minutes =
+            int.tryParse(
+              topic.duration!
+                  .split(" ")
+                  .first,
+            ) ??
+                10;
+
         totalMinutes += minutes;
       } else {
-        totalMinutes += topic.totalVideos * 10;
+        totalMinutes += 10;
       }
     }
+
     return "$totalMinutes min";
   }
 

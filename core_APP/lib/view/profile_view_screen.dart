@@ -1,16 +1,12 @@
 import 'dart:convert';
+import 'package:core_app/auth/auth_screen.dart';
 import 'package:core_app/view/drawer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/app_colors.dart';
-import 'dart:convert';
-import 'package:core_app/view/drawer_screen.dart'; // Adjust as per your path
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/app_colors.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -178,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
-              if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              if (context.mounted) Navigator.push(context,MaterialPageRoute(builder: (context)=>OttAuthScreen()));
             },
             child: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
           ),

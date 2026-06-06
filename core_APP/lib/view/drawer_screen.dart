@@ -49,7 +49,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       }
 
       final response = await http.get(
-        Uri.parse('https://core-backend-38rr.onrender.com/api/downloaded-lectures'),
+        Uri.parse(
+          'https://core-backend-38rr.onrender.com/api/reel-engagement/download/6a1fc79f3ab5cecceb6b0c11',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -57,10 +59,22 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['result'] != null) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true) {
           setState(() {
-            downloadedLectures = data['result'];
+            downloadedLectures = [
+              {
+                "reelId": data["reel_id"],
+                "title": data["title"],
+                "videoUrl": data["download_url"],
+                "thumbnail": "",
+                "teacherName": "",
+                "localPath": "",
+                "totalDownloads": data["total_downloads"],
+              }
+            ];
+
             loading = false;
           });
         } else {
@@ -77,12 +91,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       }
     } catch (e) {
       setState(() {
-        errorMessage = "Network error. Please try again.";
+        errorMessage = e.toString();
         loading = false;
       });
     }
   }
-
   Future<void> _loadLocalDownloads() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
